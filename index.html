@@ -2,451 +2,498 @@
 <html lang="uk">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0a0c10">
 <title>Сетлист</title>
 <style>
-  :root{--bg:#0d0f12;--fg:#f2f4f7;--chord:#ffb02e;--dim:#7b8494;--line:#232833;--accent:#3d82f6;--ls:26px}
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{margin:0;background:var(--bg);color:var(--fg)}
-  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-       padding:0 16px calc(60vh + env(safe-area-inset-bottom)) 16px;-webkit-text-size-adjust:100%}
+  :root{
+    --bg:#0a0c10; --surface:#161b24; --surface-2:#1e242f;
+    --fg:#eef2f7; --dim:#818c9e; --edge:#272e3a;
+    --chord:#f0a93b; --accent:#5b9dff; --ok:#3ec98a; --bad:#ff6f6f;
+    --ls:27px; --radius:12px;
+  }
+  *{box-sizing:border-box;touch-action:manipulation}          /* kills double-tap zoom */
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--fg);
+    font:400 16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+    padding:0 18px calc(65vh + env(safe-area-inset-bottom));
+    overscroll-behavior-y:contain;
+  }
+  button,select,input,textarea{font-family:inherit;font-size:16px}  /* <16px makes iOS zoom */
 
-  header{position:sticky;top:0;z-index:10;background:rgba(13,15,18,.95);backdrop-filter:blur(8px);
-         border-bottom:1px solid var(--line);margin:0 -16px 14px;padding:calc(env(safe-area-inset-top) + 8px) 16px 8px;}
-  .bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-  h1{font-size:17px;margin:0;font-weight:600;flex:1 1 auto;min-width:40%}
-  .btn{appearance:none;border:1px solid var(--line);background:#171b22;color:var(--fg);
-       border-radius:9px;padding:8px 11px;font-size:15px;font-weight:600;cursor:pointer}
-  .btn:active{background:#222833}
-  select.btn{padding-right:8px}
-  .meta{font-size:13px;color:var(--dim);margin-top:6px;width:100%}
-  .meta b{color:var(--fg);font-weight:600}
-  #midi{font-size:12px;color:var(--dim);width:100%;margin-top:4px}
-  #midi.ok{color:#35c07a}#midi.err{color:#ff6b6b}
+  /* ---------- header ---------- */
+  header{
+    position:sticky;top:0;z-index:20;margin:0 -18px 18px;
+    padding:calc(env(safe-area-inset-top) + 10px) 18px 10px;
+    background:rgba(10,12,16,.92);backdrop-filter:saturate(1.4) blur(14px);
+    border-bottom:1px solid var(--edge);
+  }
+  .top{display:flex;align-items:center;gap:10px;min-height:44px}
+  .top h1{flex:1;margin:0;font-size:18px;font-weight:650;letter-spacing:-.01em;
+          white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .tools{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .grow{flex:1}
 
-  ul{list-style:none;padding:0;margin:0}
-  li.song{border-bottom:1px solid var(--line);padding:15px 4px;cursor:pointer}
-  li.song .t{font-size:20px}
-  li.song .s{font-size:13px;color:var(--dim);margin-top:3px}
-  li.song .s .warn{color:var(--chord)}
+  .btn{
+    -webkit-appearance:none;appearance:none;border:1px solid var(--edge);
+    background:var(--surface);color:var(--fg);border-radius:var(--radius);
+    min-height:44px;min-width:44px;padding:0 14px;font-weight:600;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  }
+  .btn:active{background:var(--surface-2);transform:scale(.97)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#04101f}
+  .btn.ghost{background:transparent}
+  .btn.icon{padding:0 12px;font-size:19px}
 
-  .section{color:var(--dim);font-size:15px;margin:22px 0 6px;letter-spacing:.04em;text-transform:uppercase}
-  .row{margin-bottom:4px;line-height:1.15}
+  .field{display:flex;align-items:center;background:var(--surface);border:1px solid var(--edge);
+         border-radius:var(--radius);min-height:44px;padding:0 4px 0 12px;gap:6px}
+  .field span{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.08em}
+  .field select{-webkit-appearance:none;appearance:none;background:transparent;border:0;color:var(--fg);
+                font-weight:650;padding:0 26px 0 2px;min-height:42px;
+                background-image:linear-gradient(45deg,transparent 50%,var(--dim) 50%),
+                                 linear-gradient(135deg,var(--dim) 50%,transparent 50%);
+                background-position:calc(100% - 14px) 19px, calc(100% - 9px) 19px;
+                background-size:5px 5px;background-repeat:no-repeat}
+  .field select:focus{outline:none}
+
+  .status{margin-top:9px;font-size:13px;color:var(--dim);display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .status b{color:var(--fg);font-weight:650}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--dim);flex:none}
+  .dot.ok{background:var(--ok)}.dot.bad{background:var(--bad)}
+
+  /* ---------- setlist ---------- */
+  .cards{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:10px}
+  .card{background:var(--surface);border:1px solid var(--edge);border-radius:16px;
+        padding:16px 16px;display:flex;align-items:center;gap:14px;cursor:pointer}
+  .card:active{background:var(--surface-2)}
+  .num{width:28px;height:28px;flex:none;border-radius:9px;background:var(--surface-2);
+       color:var(--dim);font-size:13px;font-weight:700;display:grid;place-items:center}
+  .card .body{flex:1;min-width:0}
+  .card .name{font-size:19px;font-weight:600;letter-spacing:-.01em}
+  .card .sub{margin-top:4px;font-size:13px;color:var(--dim);display:flex;gap:8px;flex-wrap:wrap}
+  .chip{background:var(--surface-2);border-radius:999px;padding:2px 9px;font-size:12px}
+  .chip.warn{color:var(--chord)}
+  .chev{color:var(--dim);font-size:20px;flex:none}
+
+  /* ---------- chart ---------- */
+  .section{margin:30px 0 10px;font-size:12px;font-weight:700;letter-spacing:.14em;
+           text-transform:uppercase;color:var(--dim);display:flex;align-items:center;gap:10px}
+  .section::after{content:"";flex:1;height:1px;background:var(--edge)}
+  .row{margin-bottom:6px;line-height:1.16}
   .seg{display:inline-block;vertical-align:bottom}
-  .ch{display:block;color:var(--chord);font-weight:700;font-size:calc(var(--ls)*.8);line-height:1.25;white-space:pre}
-  .ly{display:block;font-size:var(--ls);white-space:pre}
-  .blank{height:calc(var(--ls)*.55)}
-  .auto .ch{color:#9a7b3a}
-  .btn.off{opacity:.42}
-  .rowbtns{display:flex;gap:8px;margin:12px 0}
+  .ch{display:block;color:var(--chord);font-weight:700;letter-spacing:-.01em;
+      font-size:calc(var(--ls) * .78);line-height:1.3;white-space:pre}
+  .ly{display:block;font-size:var(--ls);white-space:pre;letter-spacing:-.005em}
+  .only .ch{font-size:calc(var(--ls) * .86);
+            font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .blank{height:calc(var(--ls) * .6)}
 
-  .empty{padding:24px 0;color:var(--dim);font-size:16px;line-height:1.6}
+  /* ---------- editor / empty ---------- */
+  .empty{padding:28px 0;color:var(--dim);line-height:1.7}
   .empty a{color:var(--accent)}
-  textarea{width:100%;min-height:240px;background:#12151b;color:var(--fg);border:1px solid var(--line);
-           border-radius:10px;padding:12px;font:14px/1.4 ui-monospace,Menlo,monospace;white-space:pre;overflow-x:auto}
-  .hint{font-size:13px;color:var(--dim);line-height:1.6;margin:10px 0}
+  .hint{font-size:14px;color:var(--dim);line-height:1.6;margin:12px 0}
+  textarea,input.text{
+    width:100%;background:var(--surface);color:var(--fg);border:1px solid var(--edge);
+    border-radius:var(--radius);padding:14px;
+  }
+  textarea{min-height:46vh;font:15px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;
+           white-space:pre;overflow-x:auto}
+  input.text{min-height:48px}
+  textarea:focus,input.text:focus{outline:none;border-color:var(--accent)}
+  .actions{display:flex;gap:10px;margin:14px 0}
+  .actions .btn{flex:1}
 </style>
 </head>
 <body>
 
 <header>
-  <div class="bar">
-    <button class="btn" id="back" hidden>‹</button>
+  <div class="top">
+    <button class="btn ghost icon" id="back" hidden>‹</button>
     <h1 id="title">Сетлист</h1>
-    <button class="btn" id="imp">Додати</button>
-    <button class="btn" id="tdn" hidden>−½</button>
-    <button class="btn" id="tup" hidden>+½</button>
-    <select class="btn" id="capo" hidden></select>
-    <button class="btn" id="edit" hidden>✎</button>
-    <button class="btn" id="fdn" hidden>A−</button>
-    <button class="btn" id="fup" hidden>A+</button>
+    <button class="btn ghost icon" id="edit" hidden title="Редагувати">✎</button>
+    <button class="btn primary" id="add">Додати</button>
   </div>
-  <div class="meta" id="meta" hidden></div>
-  <div id="midi">MIDI: …</div>
+
+  <div class="tools" id="tools" hidden>
+    <label class="field"><span>Тон</span><select id="key"></select></label>
+    <label class="field"><span>Капо</span><select id="capo"></select></label>
+    <div class="grow"></div>
+    <button class="btn" id="fdn">A−</button>
+    <button class="btn" id="fup">A+</button>
+  </div>
+
+  <div class="status" id="meta" hidden></div>
+  <div class="status" id="midi"><i class="dot"></i><span>MIDI…</span></div>
 </header>
 
-<ul id="list"></ul>
+<ul class="cards" id="list"></ul>
 <div id="song" hidden></div>
-<div id="import" hidden></div>
+<div id="editor" hidden></div>
 
 <script>
 'use strict';
+const $ = id => document.getElementById(id);
 
-/* ---------------- notation ----------------
-   Holychords uses Slavic naming: H = B natural, B = B flat.
-   Western: B = B natural, Bb = B flat.
-   We detect which one a song uses and transpose back into the same family,
-   so a chart never changes alphabet just because you pressed +1/2.        */
+/* ============ notation ============
+   Holychords uses Slavic naming: H is B natural and B is B flat.
+   Detect which family a chart uses and stay inside it, so a chord
+   never changes alphabet just because you moved the key.            */
+const SHARP_W=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const FLAT_W =['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+const SHARP_S=['C','C#','D','D#','E','F','F#','G','G#','A','B','H'];
+const FLAT_S =['C','Db','D','Eb','E','F','Gb','G','Ab','A','B','H'];
 
-const SHARP_W = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-const FLAT_W  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
-const SHARP_S = ['C','C#','D','D#','E','F','F#','G','G#','A','B','H'];
-const FLAT_S  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','B','H'];
+const CHORD=/^\(?([A-H])([b#♭♯]?)((?:maj|min|sus|add|aug|dim|m|M|°|\+|\d|\(|\))*)(?:\/([A-H])([b#♭♯]?))?\)?[,;]?$/;
+const SEPS=new Set(['|','||','-','/','x2','x3','x4','(x2)','(x3)','(x4)']);
+const isSectionLine=t=>{ t=(t||'').trim(); return !!t && t.length<=32 && (SECTION_RE.test(t)||/:$/.test(t)); };
+const SECTION_RE=/^(куплет|приспів|приспiв|припев|перед\s|передприспів|перехід|бридж|брідж|bridge|інтро|интро|intro|програш|проигрыш|кінцівка|концовка|outro|verse|chorus|pre-?chorus|соло|solo|финал|фінал)/i;
 
-const CHORD = /^\(?([A-H])([b#♭♯]?)((?:maj|min|sus|add|aug|dim|m|M|°|\+|\d|\(|\))*)(?:\/([A-H])([b#♭♯]?))?\)?[,;]?$/;
-const SEPS = new Set(['|','||','-','/','x2','x3','x4','(x2)','(x3)','(x4)']);
+let DATA={midi:{up:64,down:65,channel:1,debounceMs:300},scrollFraction:.45,songs:[]};
+let cur=-1, transpose=0, capo=0, fontSize=27, slavic=false, basePc=null, baseSuffix='';
 
-let DATA = { midi:{up:64,down:65,channel:1,debounceMs:300}, scrollFraction:0.45, songs:[] };
-let cur = -1, transpose = 0, capo = 0, fontSize = 26, slavic = false;
-
-function pc(root, acc){
-  const base = {C:0,D:2,E:4,F:5,G:7,A:9,B:slavic?10:11,H:11}[root];
-  if (base === undefined) return null;
-  let i = base;
-  if (acc === '#' || acc === '♯') i++;
-  if (acc === 'b' || acc === '♭') i--;
-  return ((i % 12) + 12) % 12;
+function pcOf(root,acc){
+  const base={C:0,D:2,E:4,F:5,G:7,A:9,B:slavic?10:11,H:11}[root];
+  if(base===undefined) return null;
+  let i=base;
+  if(acc==='#'||acc==='♯') i++;
+  if(acc==='b'||acc==='♭') i--;
+  return ((i%12)+12)%12;
 }
-function name(i, flat){
-  i = ((i % 12) + 12) % 12;
-  return slavic ? (flat ? FLAT_S[i] : SHARP_S[i]) : (flat ? FLAT_W[i] : SHARP_W[i]);
-}
-function shift(root, acc, n){
-  const p = pc(root, acc);
-  if (p === null) return root + acc;
-  return name(p + n, acc === 'b' || acc === '♭');
-}
-function transposeToken(tok, n){
-  if (!n) return tok;
-  const m = tok.match(CHORD);
-  if (!m) return tok;
-  let out = shift(m[1], m[2], n) + (m[3] || '');
-  if (m[4]) out += '/' + shift(m[4], m[5] || '', n);
+const nameOf=(i,flat)=>{ i=((i%12)+12)%12;
+  return slavic?(flat?FLAT_S[i]:SHARP_S[i]):(flat?FLAT_W[i]:SHARP_W[i]); };
+function shift(root,acc,n){ const p=pcOf(root,acc); return p===null?root+acc:nameOf(p+n,acc==='b'||acc==='♭'); }
+function transposeToken(tok,n){
+  if(!n) return tok;
+  const m=tok.match(CHORD); if(!m) return tok;
+  let out=shift(m[1],m[2],n)+(m[3]||'');
+  if(m[4]) out+='/'+shift(m[4],m[5]||'',n);
   return out;
 }
-function isChordToken(t){ return SEPS.has(t.toLowerCase()) || CHORD.test(t); }
+const isChordToken=t=>SEPS.has(t.toLowerCase())||CHORD.test(t);
 function isChordLine(line){
-  const t = line.trim();
-  if (!t) return false;
-  if (/[Ѐ-ӿ]/.test(t)) return false;   // any Cyrillic => it's lyrics
-  if (!/[A-H]/.test(t)) return false;
+  const t=line.trim();
+  if(!t) return false;
+  if(/[Ѐ-ӿ]/.test(t)) return false;
+  if(!/[A-H]/.test(t)) return false;
   return t.split(/\s+/).every(isChordToken);
 }
-function detectSlavic(body){
-  return body.split('\n').filter(isChordLine).join(' ').split(/\s+/)
-             .some(t => /^H/.test(t));
-}
+const detectSlavic=body=>body.split('\n').filter(isChordLine).join(' ').split(/\s+/).some(t=>/^H/.test(t));
 
-const SECTION_RE = /^(куплет|приспів|приспiв|припев|перехід|бридж|bridge|інтро|интро|intro|програш|проигрыш|кінцівка|концовка|outro|verse|chorus|pre-?chorus|преприспів|соло|solo)\b/i;
-
-function splitBlocks(body){
-  const blocks = [[]];
-  for (const line of body.replace(/\r/g,'').split('\n')){
-    if (!line.trim()) blocks.push([]); else blocks[blocks.length-1].push(line);
+/* ============ normalising a pasted chart ============ */
+function normalise(raw){
+  let lines=raw.replace(/\r/g,'').replace(/ /g,' ').split('\n').map(l =>
+    l.replace(/\*\*/g,'').replace(/__/g,'').replace(/^#{1,6}\s*/,'').replace(/\s+$/,'')
+  );
+  // A blank line between a chord line and its lyric is a paste artefact — drop it.
+  const out=[];
+  for(let i=0;i<lines.length;i++){
+    if(!lines[i].trim() && out.length && isChordLine(out[out.length-1])){
+      let j=i; while(j<lines.length && !lines[j].trim()) j++;
+      // join a chord line to its lyric, but never swallow the next heading
+      if(j<lines.length && lines[j].trim() && !isChordLine(lines[j]) && !isSectionLine(lines[j])){ continue; }
+    }
+    out.push(lines[i]);
   }
-  return blocks.filter(b => b.length);
+  return out.join('\n').replace(/\n{3,}/g,'\n\n').trim();
+}
+function splitBlocks(body){
+  const blocks=[[]];
+  for(const line of body.split('\n')){
+    if(!line.trim()) blocks.push([]); else blocks[blocks.length-1].push(line);
+  }
+  return blocks.filter(b=>b.length);
 }
 function pairsOf(block){
-  const out = [];
-  for (let i = 0; i < block.length; i++){
-    const line = block[i];
-    if (isChordLine(line)){
-      const next = block[i+1];
-      if (next !== undefined && !isChordLine(next)){ out.push({chords:line, lyric:next}); i++; }
-      else out.push({chords:line, lyric:''});
+  const out=[];
+  for(let i=0;i<block.length;i++){
+    const line=block[i];
+    if(isChordLine(line)){
+      const next=block[i+1];
+      if(next!==undefined && !isChordLine(next) && !isSectionLine(next)){ out.push({chords:line,lyric:next}); i++; }
+      else out.push({chords:line,lyric:''});
       continue;
     }
-    const t = line.trim();
-    const nextIsChord = block[i+1] && isChordLine(block[i+1]);
-    if (out.length === 0 && t.length <= 30 && (SECTION_RE.test(t) || /:$/.test(t) || nextIsChord))
-      out.push({section:t});
-    else out.push({chords:'', lyric:line});
+    const t=line.trim();
+    // A heading only counts if it says so — never merely because chords follow.
+    if(isSectionLine(t)) out.push({section:t.replace(/:$/,'')});
+    else out.push({chords:'',lyric:line});
   }
   return out;
 }
 
-/* ---------------- rendering ---------------- */
+/* ============ rendering ============ */
+const steps=()=>transpose-capo;                       // shown = written + transpose − capo
 
-// displayed = written + transpose - capo
-const shownSteps = () => transpose - capo;
+function rebuildChordLine(line,n){
+  const marks=[]; const re=/\S+/g; let m;
+  while((m=re.exec(line))!==null) marks.push({col:m.index,text:transposeToken(m[0],n)});
+  let out='';
+  for(const k of marks){
+    out += out.length>k.col ? ' ' : ' '.repeat(k.col-out.length);
+    out += k.text;
+  }
+  return out;
+}
+function renderPair(chordLine,lyricLine){
+  const row=document.createElement('div'); row.className='row';
 
-function renderPair(chordLine, lyricLine){
-  const row = document.createElement('div');
-  row.className = 'row';
-  const lyric = lyricLine || '';
-  const marks = [];
-  const re = /\S+/g; let m;
-  while ((m = re.exec(chordLine)) !== null) marks.push({col:m.index, text:m[0]});
+  if(!lyricLine){                                     // chord-only line: keep its spacing
+    row.classList.add('only');
+    const ch=document.createElement('span'); ch.className='ch';
+    ch.textContent=rebuildChordLine(chordLine,steps());
+    row.append(ch); return row;
+  }
+  const marks=[]; const re=/\S+/g; let m;
+  while((m=re.exec(chordLine))!==null) marks.push({col:m.index,text:m[0]});
+  const cuts=[];
+  if(!marks.length||marks[0].col>0) cuts.push({col:0,text:''});
+  for(const c of marks) cuts.push({col:c.col,text:transposeToken(c.text,steps())});
 
-  const cuts = [];
-  if (!marks.length || marks[0].col > 0) cuts.push({col:0, text:''});
-  for (const c of marks) cuts.push({col:c.col, text:transposeToken(c.text, shownSteps())});
-
-  cuts.forEach((c,i) => {
-    const end = (i+1 < cuts.length) ? cuts[i+1].col : lyric.length;
-    let piece = lyric.slice(c.col, Math.max(c.col, end));
-    if (c.text && piece.length && piece.length < c.text.length + 1 && i+1 < cuts.length) piece += ' ';
-    if (!c.text && !piece) return;
-    const seg = document.createElement('span'); seg.className = 'seg';
-    const ch = document.createElement('span'); ch.className = 'ch'; ch.textContent = c.text || ' ';
-    const ly = document.createElement('span'); ly.className = 'ly'; ly.textContent = piece || ' ';
-    seg.append(ch, ly); row.append(seg);
+  cuts.forEach((c,i)=>{
+    const end=(i+1<cuts.length)?cuts[i+1].col:lyricLine.length;
+    let piece=lyricLine.slice(c.col,Math.max(c.col,end));
+    if(c.text&&piece.length&&piece.length<c.text.length+1&&i+1<cuts.length) piece+=' ';
+    if(!c.text&&!piece) return;
+    const seg=document.createElement('span'); seg.className='seg';
+    const ch=document.createElement('span'); ch.className='ch'; ch.textContent=c.text||' ';
+    const ly=document.createElement('span'); ly.className='ly'; ly.textContent=piece||' ';
+    seg.append(ch,ly); row.append(seg);
   });
   return row;
 }
-
-function renderBody(host, body){
-  host.textContent = '';
-  const blocks = splitBlocks(body).map(pairsOf);
-  blocks.forEach((pairs, bi) => {
-    pairs.forEach(p => {
-      if (p.section){
-        const el = document.createElement('div'); el.className = 'section';
-        el.textContent = p.section; host.append(el); return;
+function renderBody(host,body){
+  host.textContent='';
+  const blocks=splitBlocks(body).map(pairsOf);
+  blocks.forEach((pairs,bi)=>{
+    pairs.forEach(p=>{
+      if(p.section){
+        const el=document.createElement('div'); el.className='section';
+        el.textContent=p.section; host.append(el); return;
       }
-      host.append(renderPair(p.chords || '', p.lyric));
+      host.append(renderPair(p.chords||'',p.lyric));
     });
-    if (bi < blocks.length - 1){
-      const b = document.createElement('div'); b.className = 'blank'; host.append(b);
-    }
+    if(bi<blocks.length-1){ const b=document.createElement('div'); b.className='blank'; host.append(b); }
   });
 }
 
-/* ---------------- views ---------------- */
+/* ============ storage ============ */
+const STORE='chord-stage-v1';
+const loadLocal=()=>{ try{ return JSON.parse(localStorage.getItem(STORE)||'{}'); }catch(e){ return {}; } };
+const saveLocal=o=>{ try{ localStorage.setItem(STORE,JSON.stringify(o)); return true; }catch(e){ return false; } };
+function applyLocal(){
+  const L=loadLocal();
+  DATA.songs.forEach(s=>{ if(L[s.title]&&L[s.title].body) s.body=L[s.title].body; });
+  Object.keys(L).forEach(t=>{
+    if(!DATA.songs.some(s=>s.title===t)) DATA.songs.push({title:t,leader:'',key:'',url:'',body:L[t].body});
+  });
+}
 
-const $ = id => document.getElementById(id);
-const CTRLS = ['back','tdn','tup','capo','edit','fdn','fup'];
-
+/* ============ key + capo controls ============ */
+function firstChordOf(body){
+  for(const line of body.split('\n')){
+    if(!isChordLine(line)) continue;
+    const tok=line.trim().split(/\s+/).find(t=>CHORD.test(t));
+    if(tok) return tok.match(CHORD);
+  }
+  return null;
+}
 function buildCapo(){
-  const sel = $('capo'); sel.textContent='';
-  for (let i=0;i<=7;i++){
+  const sel=$('capo'); sel.textContent='';
+  for(let i=0;i<=7;i++){
     const o=document.createElement('option'); o.value=i;
-    o.textContent = i ? 'Капо '+i : 'Без капо'; sel.append(o);
+    o.textContent=i?('+'+i):'—';
+    sel.append(o);
   }
 }
-
+function buildKeys(){
+  const sel=$('key'); sel.textContent='';
+  if(basePc===null){ sel.disabled=true; return; }
+  sel.disabled=false;
+  for(let i=0;i<12;i++){
+    const o=document.createElement('option'); o.value=i;
+    o.textContent=nameOf(i,false)+baseSuffix;
+    sel.append(o);
+  }
+  sel.value=((basePc+transpose)%12+12)%12;
+}
 function updateMeta(){
-  if (cur < 0) return;
-  const s = DATA.songs[cur];
-  const written = s.key || '';
-  const el = $('meta');
-  if (!s.body){ el.hidden = true; return; }
-  const parts = [];
-  const base = written ? written.match(CHORD) : null;
-  if (base){
-    const p = pc(base[1], base[2]);
-    const sounds = name(p + transpose, false) + (base[3]||'');
-    const played = name(p + transpose - capo, false) + (base[3]||'');
-    parts.push('Грати <b>'+played+'</b>');
-    if (capo) parts.push('капо <b>'+capo+'</b>');
-    parts.push('звучить <b>'+sounds+'</b>');
-  } else {
-    if (transpose) parts.push('транспон. <b>'+(transpose>0?'+':'')+transpose+'</b>');
-    if (capo) parts.push('капо <b>'+capo+'</b>');
-  }
-  if (s.leader) parts.push('веде <b>'+s.leader+'</b>');
-  el.innerHTML = parts.join(' · ');
-  el.hidden = !parts.length;
+  const el=$('meta');
+  if(cur<0||basePc===null){ el.hidden=true; return; }
+  const sounds=nameOf(basePc+transpose,false)+baseSuffix;
+  const played=nameOf(basePc+transpose-capo,false)+baseSuffix;
+  const bits=[];
+  if(capo) bits.push('Грати <b>'+played+'</b> · капо <b>+'+capo+'</b> · звучить <b>'+sounds+'</b>');
+  else bits.push('Тональність <b>'+sounds+'</b>');
+  const s=DATA.songs[cur];
+  if(s.leader) bits.push('· веде <b>'+s.leader+'</b>');
+  el.innerHTML=bits.join(' ');
+  el.hidden=false;
 }
 
+/* ============ views ============ */
 function showList(){
-  cur = -1;
-  $('song').hidden = true; $('import').hidden = true; $('list').hidden = false;
-  $('title').textContent = 'Сетлист';
-  $('meta').hidden = true; $('imp').hidden = false;
-  CTRLS.forEach(id => $(id).hidden = true);
+  cur=-1;
+  $('song').hidden=true; $('editor').hidden=true; $('list').hidden=false;
+  $('title').textContent='Сетлист';
+  $('back').hidden=true; $('edit').hidden=true; $('add').hidden=false;
+  $('tools').hidden=true; $('meta').hidden=true;
   window.scrollTo(0,0);
 }
-
 function openSong(i){
-  cur = i; transpose = 0; capo = 0;
-  const s = DATA.songs[i];
-  slavic = s.body ? detectSlavic(s.body) : false;
-  $('list').hidden = true; $('import').hidden = true; $('song').hidden = false;
-  $('title').textContent = s.title;
-  $('imp').hidden = true;
-  CTRLS.forEach(id => $(id).hidden = false);
-  $('capo').value = 0;
+  cur=i; transpose=0; capo=0;
+  const s=DATA.songs[i];
+  $('list').hidden=true; $('editor').hidden=true; $('song').hidden=false;
+  $('title').textContent=s.title;
+  $('back').hidden=false; $('add').hidden=true;
 
-  if (!s.body){
-    CTRLS.filter(x=>x!=='back').forEach(id => $(id).hidden = true);
-    const d = $('song'); d.textContent='';
-    const p = document.createElement('div'); p.className='empty';
-    p.innerHTML = 'Текст ще не додано.<br><br>' +
-      (s.url ? 'Відкрий <a href="'+s.url+'" target="_blank" rel="noopener">holychords</a> ' : 'Відкрий пісню на holychords ') +
-      'у сусідній вкладці, скопіюй акорди й встав їх сюди.';
-    const go = document.createElement('button'); go.className='btn'; go.textContent='Вставити акорди';
-    go.addEventListener('click', () => showImport(i));
-    const wrap = document.createElement('div'); wrap.className='rowbtns'; wrap.append(go);
-    d.append(p, wrap);
-    $('meta').hidden = true;
-    window.scrollTo(0,0);
-    return;
+  if(!s.body){
+    $('edit').hidden=true; $('tools').hidden=true; $('meta').hidden=true;
+    const d=$('song'); d.textContent='';
+    const p=document.createElement('div'); p.className='empty';
+    p.innerHTML='Акорди ще не додано.<br>'+
+      (s.url?'Відкрий <a href="'+s.url+'" target="_blank" rel="noopener">holychords</a>, скопіюй і встав сюди.'
+            :'Скопіюй акорди з holychords і встав сюди.');
+    const btn=document.createElement('button'); btn.className='btn primary'; btn.textContent='Вставити акорди';
+    btn.addEventListener('click',()=>showEditor(i));
+    const wrap=document.createElement('div'); wrap.className='actions'; wrap.append(btn);
+    d.append(p,wrap); window.scrollTo(0,0); return;
   }
-  renderBody($('song'), s.body);
+
+  slavic=detectSlavic(s.body);
+  const first=firstChordOf(s.body);
+  basePc=first?pcOf(first[1],first[2]):null;
+  baseSuffix=first&&/^m(?!aj)/.test(first[3]||'')?'m':'';
+  $('edit').hidden=false; $('tools').hidden=false;
+  buildKeys(); $('capo').value=0;
+  renderBody($('song'),s.body);
   updateMeta();
   window.scrollTo(0,0);
 }
-
 function buildList(){
-  const ul = $('list'); ul.textContent='';
-  DATA.songs.forEach((s,i) => {
-    const li = document.createElement('li'); li.className='song';
-    const t = document.createElement('div'); t.className='t'; t.textContent = s.title;
-    const sub = document.createElement('div'); sub.className='s';
-    const bits = [];
-    if (s.leader) bits.push('веде ' + s.leader);
-    if (s.key) bits.push(s.key);
-    sub.textContent = bits.join(' · ');
-    if (!s.body){
-      const w = document.createElement('span'); w.className='warn';
-      w.textContent = (bits.length ? ' · ' : '') + 'без тексту';
-      sub.append(w);
-    }
-    li.append(t, sub);
-    li.addEventListener('click', () => openSong(i));
+  const ul=$('list'); ul.textContent='';
+  DATA.songs.forEach((s,i)=>{
+    const li=document.createElement('li'); li.className='card';
+    const n=document.createElement('div'); n.className='num'; n.textContent=i+1;
+    const body=document.createElement('div'); body.className='body';
+    const name=document.createElement('div'); name.className='name'; name.textContent=s.title;
+    const sub=document.createElement('div'); sub.className='sub';
+    if(s.leader){ const c=document.createElement('span'); c.className='chip'; c.textContent=s.leader; sub.append(c); }
+    if(s.key){ const c=document.createElement('span'); c.className='chip'; c.textContent=s.key; sub.append(c); }
+    if(!s.body){ const c=document.createElement('span'); c.className='chip warn'; c.textContent='без акордів'; sub.append(c); }
+    body.append(name); if(sub.children.length) body.append(sub);
+    const ch=document.createElement('div'); ch.className='chev'; ch.textContent='›';
+    li.append(n,body,ch);
+    li.addEventListener('click',()=>openSong(i));
     ul.append(li);
   });
 }
 
-/* ---------------- import ---------------- */
+/* ============ editor ============ */
+function showEditor(idx){
+  $('list').hidden=true; $('song').hidden=true;
+  const host=$('editor'); host.hidden=false; host.textContent='';
+  const existing=idx>=0?DATA.songs[idx]:null;
+  $('title').textContent=existing?existing.title:'Нова пісня';
+  $('back').hidden=false; $('edit').hidden=true; $('add').hidden=true;
+  $('tools').hidden=true; $('meta').hidden=true;
 
-/* Songs you paste are kept in this browser. Paste on the phone you play
-   from and it stays there; songs.json in the repo only seeds the list.   */
-const STORE = 'chord-stage-v1';
-function loadLocal(){ try { return JSON.parse(localStorage.getItem(STORE) || '{}'); } catch(e){ return {}; } }
-function saveLocal(o){ try { localStorage.setItem(STORE, JSON.stringify(o)); return true; } catch(e){ return false; } }
-function applyLocal(){
-  const L = loadLocal();
-  DATA.songs.forEach(s => { if (L[s.title] && L[s.title].body) s.body = L[s.title].body; });
-  Object.keys(L).forEach(t => {
-    if (!DATA.songs.some(s => s.title === t))
-      DATA.songs.push({ title:t, leader:'', key:'', url:'', body:L[t].body });
-  });
-}
+  const hint=document.createElement('div'); hint.className='hint';
+  hint.textContent='Встав акорди, скопійовані з holychords. Тональність і капо міняються потім, у плеєрі.';
 
-function showImport(idx){
-  $('list').hidden = true; $('song').hidden = true;
-  const host = $('import'); host.hidden = false; host.textContent = '';
-  const existing = idx >= 0 ? DATA.songs[idx] : null;
-  $('title').textContent = existing ? existing.title : 'Нова пісня';
-  $('imp').hidden = true; CTRLS.forEach(id => $(id).hidden = true);
-  $('back').hidden = false; $('meta').hidden = true;
-
-  const hint = document.createElement('div'); hint.className = 'hint';
-  hint.innerHTML = 'Скопіюй акорди з holychords у будь-якій тональності і встав сюди. ' +
-                   'Транспонування, капо й автопідстановку акордів у куплети налаштуєш у плеєрі.';
-
-  let nameInput = null;
-  if (!existing){
-    nameInput = document.createElement('input');
-    nameInput.className = 'btn'; nameInput.style.width = '100%';
-    nameInput.placeholder = 'Назва пісні';
+  let nameInput=null;
+  if(!existing){
+    nameInput=document.createElement('input');
+    nameInput.className='text'; nameInput.placeholder='Назва пісні';
   }
+  const ta=document.createElement('textarea');
+  ta.placeholder='Встав акорди сюди…';
+  ta.value=existing&&existing.body?existing.body:'';
 
-  const ta = document.createElement('textarea');
-  ta.placeholder = 'Встав акорди сюди…';
-  ta.value = existing && existing.body ? existing.body : '';
+  const actions=document.createElement('div'); actions.className='actions';
+  const save=document.createElement('button'); save.className='btn primary'; save.textContent='Зберегти';
+  const cancel=document.createElement('button'); cancel.className='btn'; cancel.textContent='Скасувати';
+  actions.append(cancel,save);
+  const status=document.createElement('div'); status.className='hint';
 
-  const btns = document.createElement('div'); btns.className = 'rowbtns';
-  const save = document.createElement('button'); save.className = 'btn'; save.textContent = 'Зберегти';
-  const cancel = document.createElement('button'); cancel.className = 'btn'; cancel.textContent = 'Скасувати';
-  const status = document.createElement('div'); status.className = 'hint';
-  btns.append(save, cancel);
-
-  const preview = document.createElement('div');
-  const refresh = () => {
-    const body = clean(ta.value);
-    preview.textContent = '';
-    if (!body.trim()) return;
-    slavic = detectSlavic(body); transpose = 0; capo = 0;
-    const n = body.split('\n').filter(isChordLine).length;
-    const lbl = document.createElement('div'); lbl.className = 'hint';
-    lbl.textContent = 'Рядків з акордами: ' + n + (slavic ? ' · нотація H' : ' · нотація B');
-    preview.append(lbl);
-    const box = document.createElement('div'); renderBody(box, body); preview.append(box);
-  };
-  ta.addEventListener('input', refresh);
-  ta.addEventListener('paste', () => setTimeout(refresh, 0));
-
-  save.addEventListener('click', () => {
-    const body = clean(ta.value);
-    const title = existing ? existing.title : (nameInput.value.trim() || 'Без назви');
-    if (!body.trim()){ status.textContent = 'Порожньо — нема що зберігати.'; return; }
-    const L = loadLocal(); L[title] = { body };
-    if (!saveLocal(L)){ status.textContent = 'Не вдалося зберегти у цьому браузері.'; return; }
-    let i = DATA.songs.findIndex(s => s.title === title);
-    if (i < 0){ DATA.songs.push({ title, leader:'', key:'', url:'', body }); i = DATA.songs.length - 1; }
-    else DATA.songs[i].body = body;
+  save.addEventListener('click',()=>{
+    const body=normalise(ta.value);
+    const title=existing?existing.title:((nameInput.value||'').trim()||'Без назви');
+    if(!body){ status.textContent='Порожньо — нема що зберігати.'; return; }
+    const L=loadLocal(); L[title]={body};
+    if(!saveLocal(L)){ status.textContent='Не вдалося зберегти у цьому браузері.'; return; }
+    let i=DATA.songs.findIndex(s=>s.title===title);
+    if(i<0){ DATA.songs.push({title,leader:'',key:'',url:'',body}); i=DATA.songs.length-1; }
+    else DATA.songs[i].body=body;
     buildList(); openSong(i);
   });
-  cancel.addEventListener('click', () => existing ? openSong(idx) : showList());
+  cancel.addEventListener('click',()=>existing?openSong(idx):showList());
 
   host.append(hint);
-  if (nameInput) host.append(nameInput);
-  host.append(ta, btns, status, preview);
-  refresh();
+  if(nameInput) host.append(nameInput);
+  host.append(ta,actions,status);
   window.scrollTo(0,0);
 }
 
-function clean(t){
-  return t.replace(/\r/g,'').replace(/ /g,' ').replace(/[ \t]+$/gm,'').replace(/\n{3,}/g,'\n\n');
+/* ============ MIDI ============ */
+function setMidi(text,cls){
+  const el=$('midi');
+  el.innerHTML='<i class="dot '+(cls||'')+'"></i><span>'+text+'</span>';
 }
-
-/* ---------------- MIDI ---------------- */
-
-function setMidi(t, c){ const e=$('midi'); e.textContent='MIDI: '+t; e.className=c||''; }
-
-const step = () => Math.round(window.innerHeight * (DATA.scrollFraction || 0.45));
-const last = {};
-
+const step=()=>Math.round(window.innerHeight*(DATA.scrollFraction||.45));
+const lastHit={};
 function onMidi(e){
-  const [status, num, val] = e.data;
-  if ((status & 0xf0) !== 0xb0) return;                                  // Control Change only
-  const ch = (status & 0x0f) + 1;
-  if (DATA.midi.channel && ch !== DATA.midi.channel) return;
-
-  // One tap = one move, whether the switch is momentary (127 then 0 instantly)
-  // or latching (127 on this tap, 0 on the next one).
-  const now = performance.now();
-  if (last[num] && now - last[num] < (DATA.midi.debounceMs || 300)) return;
-  last[num] = now;
-
-  if (num === DATA.midi.up)   window.scrollBy({top:-step(), behavior:'smooth'});
-  if (num === DATA.midi.down) window.scrollBy({top: step(), behavior:'smooth'});
+  const [status,num,val]=e.data;
+  if((status&0xf0)!==0xb0) return;
+  const ch=(status&0x0f)+1;
+  if(DATA.midi.channel&&ch!==DATA.midi.channel) return;
+  // One tap = one move, whether the switch is momentary (127 then 0 at once)
+  // or latching (127 this tap, 0 the next).
+  const now=performance.now();
+  if(lastHit[num]&&now-lastHit[num]<(DATA.midi.debounceMs||300)) return;
+  lastHit[num]=now;
+  if(num===DATA.midi.up)   window.scrollBy({top:-step(),behavior:'smooth'});
+  if(num===DATA.midi.down) window.scrollBy({top: step(),behavior:'smooth'});
 }
-
 function initMidi(){
-  if (!navigator.requestMIDIAccess){
-    setMidi('недоступний — відкрий у MIDIWeb Browser', 'err'); return;
-  }
-  navigator.requestMIDIAccess().then(access => {
-    const attach = () => {
-      const names = [];
-      for (const inp of access.inputs.values()){ inp.onmidimessage = onMidi; names.push(inp.name); }
-      names.length ? setMidi(names.join(', ') + ' · CC64 ↑ CC65 ↓', 'ok')
-                   : setMidi('пристрій не знайдено — підключи педаль і онови', 'err');
+  if(!navigator.requestMIDIAccess){ setMidi('недоступний — відкрий у MIDIWeb Browser','bad'); return; }
+  navigator.requestMIDIAccess().then(a=>{
+    const attach=()=>{
+      const names=[];
+      for(const i of a.inputs.values()){ i.onmidimessage=onMidi; names.push(i.name); }
+      names.length ? setMidi(names.join(', ')+' · CC64 ↑ CC65 ↓','ok')
+                   : setMidi('педаль не знайдено','bad');
     };
-    attach(); access.onstatechange = attach;
-  }).catch(err => setMidi('помилка — ' + err.message, 'err'));
+    attach(); a.onstatechange=attach;
+  }).catch(e=>setMidi('помилка: '+e.message,'bad'));
 }
 
-/* ---------------- wiring ---------------- */
+/* ============ wiring ============ */
+const rerender=()=>{ if(cur>=0&&DATA.songs[cur].body){ renderBody($('song'),DATA.songs[cur].body); updateMeta(); } };
 
-function rerender(){ if (cur>=0 && DATA.songs[cur].body){ renderBody($('song'), DATA.songs[cur].body); updateMeta(); } }
+$('back').addEventListener('click',showList);
+$('add').addEventListener('click',()=>showEditor(-1));
+$('edit').addEventListener('click',()=>showEditor(cur));
+$('key').addEventListener('change',e=>{ transpose=(+e.target.value)-basePc; rerender(); });
+$('capo').addEventListener('change',e=>{ capo=+e.target.value; rerender(); });
+$('fup').addEventListener('click',()=>{ fontSize=Math.min(fontSize+2,54); document.documentElement.style.setProperty('--ls',fontSize+'px'); });
+$('fdn').addEventListener('click',()=>{ fontSize=Math.max(fontSize-2,15); document.documentElement.style.setProperty('--ls',fontSize+'px'); });
 
-$('back').addEventListener('click', showList);
-$('imp').addEventListener('click', () => showImport(-1));
-$('edit').addEventListener('click', () => showImport(cur));
-$('tup').addEventListener('click', () => { transpose++; rerender(); });
-$('tdn').addEventListener('click', () => { transpose--; rerender(); });
-$('capo').addEventListener('change', e => { capo = +e.target.value; rerender(); });
-$('fup').addEventListener('click', () => { fontSize=Math.min(fontSize+2,52); document.documentElement.style.setProperty('--ls',fontSize+'px'); });
-$('fdn').addEventListener('click', () => { fontSize=Math.max(fontSize-2,14); document.documentElement.style.setProperty('--ls',fontSize+'px'); });
-
-window.addEventListener('keydown', e => {
-  if (e.target.tagName === 'TEXTAREA') return;
-  if (e.key==='ArrowDown'||e.key===' '){ e.preventDefault(); window.scrollBy({top:step(),behavior:'smooth'}); }
-  if (e.key==='ArrowUp'){ e.preventDefault(); window.scrollBy({top:-step(),behavior:'smooth'}); }
-  if (e.key==='Escape') showList();
+window.addEventListener('keydown',e=>{
+  if(/TEXTAREA|INPUT/.test(e.target.tagName)) return;
+  if(e.key==='ArrowDown'||e.key===' '){ e.preventDefault(); window.scrollBy({top:step(),behavior:'smooth'}); }
+  if(e.key==='ArrowUp'){ e.preventDefault(); window.scrollBy({top:-step(),behavior:'smooth'}); }
+  if(e.key==='Escape') showList();
 });
+// Belt and braces against pinch/double-tap zoom inside the chart.
+document.addEventListener('gesturestart',e=>e.preventDefault());
 
 buildCapo();
-fetch('songs.json?v=' + Date.now())
-  .then(r => { if(!r.ok) throw new Error('songs.json ' + r.status); return r.json(); })
-  .then(d => { DATA = Object.assign(DATA, d); applyLocal(); buildList(); })
-  .catch(() => { applyLocal(); buildList(); });
-
+fetch('songs.json?v='+Date.now())
+  .then(r=>{ if(!r.ok) throw 0; return r.json(); })
+  .then(d=>{ DATA=Object.assign(DATA,d); applyLocal(); buildList(); })
+  .catch(()=>{ applyLocal(); buildList(); });
 initMidi();
 </script>
 </body>
