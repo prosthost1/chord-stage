@@ -80,16 +80,16 @@
   .chev{display:none}
 
   /* ---------- chart ---------- */
-  .section{margin:36px 0 14px;font-size:calc(var(--ls) * 1.12);font-weight:800;
+  .section{margin:36px 0 14px;font-size:calc(var(--ls) * 1.55);font-weight:800;
            letter-spacing:-.01em;color:var(--fg);
            border-left:5px solid var(--chord);padding-left:12px;line-height:1.2}
   .row{margin-bottom:6px;line-height:1.16}
   .seg{display:inline-block;vertical-align:bottom}
-  .ch{display:block;color:var(--chord);font-weight:700;letter-spacing:-.01em;
-      font-size:calc(var(--ls) * 1.02);line-height:1.25;white-space:pre;
+  .ch{display:block;color:var(--chord);font-weight:800;letter-spacing:-.01em;
+      font-size:calc(var(--ls) * 1.24);line-height:1.2;white-space:pre;
       font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
   .ly{display:block;font-size:var(--ls);white-space:pre;letter-spacing:-.005em}
-  .only .ch{font-size:calc(var(--ls) * 1.1)}
+  .only .ch{font-size:calc(var(--ls) * 1.34)}
   .blank{height:calc(var(--ls) * .6)}
 
   /* ---------- editor / empty ---------- */
@@ -128,8 +128,8 @@
       <button class="btn" id="fup">A+</button>
     </div>
     <div class="status" id="meta" hidden></div>
-    <div class="status" id="midi"><i class="dot"></i><span>MIDI…</span></div>
   </div>
+  <div class="status" id="midi"><i class="dot"></i><span>MIDI…</span></div>
 </header>
 
 <ul class="cards" id="list"></ul>
@@ -340,7 +340,8 @@ function showList(){
   $('song').hidden=true; $('editor').hidden=true; $('list').hidden=false;
   $('title').textContent='Сетлист';
   $('back').hidden=true; $('edit').hidden=true; $('add').hidden=false;
-  $('gear').hidden=true; $('panel').hidden=false; $('meta').hidden=true;
+  $('gear').hidden=true; $('panel').hidden=true; $('meta').hidden=true;
+  $('midi').hidden=false;
   
   window.scrollTo(0,0);
 }
@@ -352,7 +353,7 @@ function openSong(i){
   $('back').hidden=false; $('add').hidden=true;
 
   if(!s.body){
-    $('edit').hidden=true; $('gear').hidden=true; $('panel').hidden=true; $('meta').hidden=true;
+    $('edit').hidden=true; $('gear').hidden=true; $('panel').hidden=true; $('meta').hidden=true; $('midi').hidden=false;
     const d=$('song'); d.textContent='';
     const p=document.createElement('div'); p.className='empty';
     p.innerHTML='Акорди ще не додано.<br>'+
@@ -368,7 +369,7 @@ function openSong(i){
   const first=firstChordOf(s.body);
   basePc=first?pcOf(first[1],first[2]):null;
   baseSuffix=first&&/^m(?!aj)/.test(first[3]||'')?'m':'';
-  $('edit').hidden=false; $('gear').hidden=false; $('panel').hidden=true;
+  $('edit').hidden=false; $('gear').hidden=false; $('panel').hidden=true; $('midi').hidden=true;
   $('gear').classList.remove('on');
   buildKeys(); $('capo').value=0;
   renderBody($('song'),s.body);
@@ -401,7 +402,8 @@ function showEditor(idx){
   const existing=idx>=0?DATA.songs[idx]:null;
   $('title').textContent=existing?existing.title:'Нова пісня';
   $('back').hidden=false; $('edit').hidden=true; $('add').hidden=true;
-  $('gear').hidden=true; $('panel').hidden=false; $('meta').hidden=true;
+  $('gear').hidden=true; $('panel').hidden=true; $('meta').hidden=true;
+  $('midi').hidden=false;
   
 
   const hint=document.createElement('div'); hint.className='hint';
@@ -480,6 +482,7 @@ const rerender=()=>{ if(cur>=0&&DATA.songs[cur].body){ renderBody($('song'),DATA
 const syncSpacer=()=>{};
 $('gear').addEventListener('click',()=>{
   const p=$('panel'); p.hidden=!p.hidden;
+  $('midi').hidden=p.hidden;
   $('gear').classList.toggle('on',!p.hidden);
 });
 
