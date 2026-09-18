@@ -236,7 +236,7 @@ function openSong(i){
     const p = document.createElement('div'); p.className='empty';
     p.innerHTML = 'Текст ще не додано.<br><br>' +
       (s.url ? 'Відкрий <a href="'+s.url+'" target="_blank" rel="noopener">holychords</a>, ' : 'Відкрий пісню на holychords, ') +
-      'постав потрібну тональність, виділи й скопіюй акорди — потім «Додати».';
+      'скопіюй акорди — у будь-якій тональності — і натисни «Додати».<br>Транспонування й капо працюють тут, у плеєрі.';
     d.append(p);
     $('meta').hidden = true;
     window.scrollTo(0,0);
@@ -278,7 +278,7 @@ function showImport(){
   $('meta').hidden = true;
 
   const h = document.createElement('div'); h.className='hint';
-  h.textContent = 'Встав акорди, скопійовані з holychords. Знизу зʼявиться готовий JSON — встав його в songs.json і запуш.';
+  h.innerHTML = 'Встав акорди, скопійовані з holychords, у будь-якій тональності — транспонування й капо налаштуєш у плеєрі.<br>Знизу зʼявиться готовий JSON — встав його в songs.json і запуш.';
   const which = document.createElement('select'); which.className='btn';
   DATA.songs.forEach((s,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=s.title; which.append(o); });
   const ta = document.createElement('textarea'); ta.placeholder = 'Встав сюди…';
