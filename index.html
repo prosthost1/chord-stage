@@ -26,13 +26,10 @@
 
   /* ---------- header ---------- */
   header{
-    position:fixed;top:0;left:0;right:0;z-index:20;
-    padding:calc(env(safe-area-inset-top) + 6px) 14px 6px;
-    background:rgba(10,12,16,.94);backdrop-filter:saturate(1.4) blur(14px);
-    border-bottom:1px solid var(--edge);
-    transition:transform .22s ease;
+    position:static;margin:0 -14px 16px;
+    padding:calc(env(safe-area-inset-top) + 6px) 14px 8px;
+    background:transparent;border-bottom:1px solid var(--edge);
   }
-  header.hide{transform:translateY(-101%)}
   .top{display:flex;align-items:center;gap:8px;min-height:44px}
   .top h1{flex:1;margin:0;font-size:20px;font-weight:650;letter-spacing:-.02em;
           white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -83,15 +80,16 @@
   .chev{display:none}
 
   /* ---------- chart ---------- */
-  .section{margin:34px 0 12px;font-size:17px;font-weight:700;letter-spacing:.02em;
-           color:var(--chord);border-left:3px solid var(--chord);padding-left:10px}
+  .section{margin:36px 0 14px;font-size:calc(var(--ls) * 1.12);font-weight:800;
+           letter-spacing:-.01em;color:var(--fg);
+           border-left:5px solid var(--chord);padding-left:12px;line-height:1.2}
   .row{margin-bottom:6px;line-height:1.16}
   .seg{display:inline-block;vertical-align:bottom}
   .ch{display:block;color:var(--chord);font-weight:700;letter-spacing:-.01em;
-      font-size:calc(var(--ls) * .86);line-height:1.3;white-space:pre;
+      font-size:calc(var(--ls) * 1.02);line-height:1.25;white-space:pre;
       font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
   .ly{display:block;font-size:var(--ls);white-space:pre;letter-spacing:-.005em}
-  .only .ch{font-size:calc(var(--ls) * .92)}
+  .only .ch{font-size:calc(var(--ls) * 1.1)}
   .blank{height:calc(var(--ls) * .6)}
 
   /* ---------- editor / empty ---------- */
@@ -133,7 +131,6 @@
     <div class="status" id="midi"><i class="dot"></i><span>MIDI…</span></div>
   </div>
 </header>
-<div id="spacer"></div>
 
 <ul class="cards" id="list"></ul>
 <div id="song" hidden></div>
@@ -344,7 +341,7 @@ function showList(){
   $('title').textContent='Сетлист';
   $('back').hidden=true; $('edit').hidden=true; $('add').hidden=false;
   $('gear').hidden=true; $('panel').hidden=false; $('meta').hidden=true;
-  $('hdr').classList.remove('hide'); syncSpacer();
+  
   window.scrollTo(0,0);
 }
 function openSong(i){
@@ -355,7 +352,7 @@ function openSong(i){
   $('back').hidden=false; $('add').hidden=true;
 
   if(!s.body){
-    $('edit').hidden=true; $('gear').hidden=true; $('panel').hidden=true; $('meta').hidden=true; syncSpacer();
+    $('edit').hidden=true; $('gear').hidden=true; $('panel').hidden=true; $('meta').hidden=true;
     const d=$('song'); d.textContent='';
     const p=document.createElement('div'); p.className='empty';
     p.innerHTML='Акорди ще не додано.<br>'+
@@ -372,11 +369,11 @@ function openSong(i){
   basePc=first?pcOf(first[1],first[2]):null;
   baseSuffix=first&&/^m(?!aj)/.test(first[3]||'')?'m':'';
   $('edit').hidden=false; $('gear').hidden=false; $('panel').hidden=true;
-  $('gear').classList.remove('on'); $('hdr').classList.remove('hide');
+  $('gear').classList.remove('on');
   buildKeys(); $('capo').value=0;
   renderBody($('song'),s.body);
   updateMeta();
-  syncSpacer();
+ 
   window.scrollTo(0,0);
 }
 function buildList(){
@@ -405,7 +402,7 @@ function showEditor(idx){
   $('title').textContent=existing?existing.title:'Нова пісня';
   $('back').hidden=false; $('edit').hidden=true; $('add').hidden=true;
   $('gear').hidden=true; $('panel').hidden=false; $('meta').hidden=true;
-  $('hdr').classList.remove('hide'); syncSpacer();
+  
 
   const hint=document.createElement('div'); hint.className='hint';
   hint.textContent='Встав акорди, скопійовані з holychords. Тональність і капо міняються потім, у плеєрі.';
@@ -480,19 +477,11 @@ function initMidi(){
 /* ============ wiring ============ */
 const rerender=()=>{ if(cur>=0&&DATA.songs[cur].body){ renderBody($('song'),DATA.songs[cur].body); updateMeta(); } };
 
-function syncSpacer(){ $('spacer').style.height = $('hdr').offsetHeight + 'px'; }
+const syncSpacer=()=>{};
 $('gear').addEventListener('click',()=>{
   const p=$('panel'); p.hidden=!p.hidden;
   $('gear').classList.toggle('on',!p.hidden);
-  syncSpacer();
 });
-let lastY=0;
-window.addEventListener('scroll',()=>{
-  const y=window.scrollY;
-  if(cur>=0 && $('panel').hidden) $('hdr').classList.toggle('hide', y>lastY && y>90);
-  lastY=y;
-},{passive:true});
-window.addEventListener('resize',syncSpacer);
 
 $('back').addEventListener('click',showList);
 $('add').addEventListener('click',()=>showEditor(-1));
@@ -511,7 +500,7 @@ window.addEventListener('keydown',e=>{
 // Belt and braces against pinch/double-tap zoom inside the chart.
 document.addEventListener('gesturestart',e=>e.preventDefault());
 
-buildCapo(); syncSpacer();
+buildCapo();
 fetch('songs.json?v='+Date.now())
   .then(r=>{ if(!r.ok) throw 0; return r.json(); })
   .then(d=>{ DATA=Object.assign(DATA,d); applyLocal(); buildList(); })
