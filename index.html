@@ -284,6 +284,15 @@ function renderBody(host,body){
 
 /* ============ storage ============ */
 const STORE='chord-stage-v1';
+const PREFS='chord-stage-prefs-v1';
+const loadPrefs=()=>{ try{ return JSON.parse(localStorage.getItem(PREFS)||'{}'); }catch(e){ return {}; } };
+const savePrefs=o=>{ try{ localStorage.setItem(PREFS,JSON.stringify(o)); }catch(e){} };
+function rememberView(){
+  if(cur<0||basePc===null) return;
+  const all=loadPrefs();
+  all[DATA.songs[cur].title]={ key:((basePc+transpose)%12+12)%12, capo };
+  savePrefs(all);
+}
 const loadLocal=()=>{ try{ return JSON.parse(localStorage.getItem(STORE)||'{}'); }catch(e){ return {}; } };
 const saveLocal=o=>{ try{ localStorage.setItem(STORE,JSON.stringify(o)); return true; }catch(e){ return false; } };
 function applyLocal(){
@@ -369,9 +378,14 @@ function openSong(i){
   const first=firstChordOf(s.body);
   basePc=first?pcOf(first[1],first[2]):null;
   baseSuffix=first&&/^m(?!aj)/.test(first[3]||'')?'m':'';
+  const pref=loadPrefs()[s.title];
+  if(pref && basePc!==null && typeof pref.key==='number'){
+    transpose=pref.key-basePc;
+    capo=pref.capo||0;
+  }
   $('edit').hidden=false; $('gear').hidden=false; $('panel').hidden=true; $('midi').hidden=true;
   $('gear').classList.remove('on');
-  buildKeys(); $('capo').value=0;
+  buildKeys(); $('capo').value=capo;
   renderBody($('song'),s.body);
   updateMeta();
  
@@ -489,8 +503,8 @@ $('gear').addEventListener('click',()=>{
 $('back').addEventListener('click',showList);
 $('add').addEventListener('click',()=>showEditor(-1));
 $('edit').addEventListener('click',()=>showEditor(cur));
-$('key').addEventListener('change',e=>{ transpose=(+e.target.value)-basePc; rerender(); });
-$('capo').addEventListener('change',e=>{ capo=+e.target.value; rerender(); });
+$('key').addEventListener('change',e=>{ transpose=(+e.target.value)-basePc; rerender(); rememberView(); });
+$('capo').addEventListener('change',e=>{ capo=+e.target.value; rerender(); rememberView(); });
 $('fup').addEventListener('click',()=>{ fontSize=Math.min(fontSize+2,54); document.documentElement.style.setProperty('--ls',fontSize+'px'); });
 $('fdn').addEventListener('click',()=>{ fontSize=Math.max(fontSize-2,15); document.documentElement.style.setProperty('--ls',fontSize+'px'); });
 
