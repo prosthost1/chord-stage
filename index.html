@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Сетлист</title>
+<style>
+  :root{--bg:#0d0f12;--fg:#f2f4f7;--chord:#ffb02e;--dim:#7b8494;--line:#232833;--accent:#3d82f6;--ls:26px}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--fg)}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       padding:0 16px calc(60vh + env(safe-area-inset-bottom)) 16px;-webkit-text-size-adjust:100%}
+
+  header{position:sticky;top:0;z-index:10;background:rgba(13,15,18,.95);backdrop-filter:blur(8px);
+         border-bottom:1px solid var(--line);margin:0 -16px 14px;padding:calc(env(safe-area-inset-top) + 8px) 16px 8px;}
+  .bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  h1{font-size:17px;margin:0;font-weight:600;flex:1 1 auto;min-width:40%}
+  .btn{appearance:none;border:1px solid var(--line);background:#171b22;color:var(--fg);
+       border-radius:9px;padding:8px 11px;font-size:15px;font-weight:600;cursor:pointer}
+  .btn:active{background:#222833}
+  select.btn{padding-right:8px}
+  .meta{font-size:13px;color:var(--dim);margin-top:6px;width:100%}
+  .meta b{color:var(--fg);font-weight:600}
+  #midi{font-size:12px;color:var(--dim);width:100%;margin-top:4px}
+  #midi.ok{color:#35c07a}#midi.err{color:#ff6b6b}
+
+  ul{list-style:none;padding:0;margin:0}
+  li.song{border-bottom:1px solid var(--line);padding:15px 4px;cursor:pointer}
+  li.song .t{font-size:20px}
+  li.song .s{font-size:13px;color:var(--dim);margin-top:3px}
+  li.song .s .warn{color:var(--chord)}
+
+  .section{color:var(--dim);font-size:15px;margin:22px 0 6px;letter-spacing:.04em;text-transform:uppercase}
+  .row{margin-bottom:4px;line-height:1.15}
+  .seg{display:inline-block;vertical-align:bottom}
+  .ch{display:block;color:var(--chord);font-weight:700;font-size:calc(var(--ls)*.8);line-height:1.25;white-space:pre}
+  .ly{display:block;font-size:var(--ls);white-space:pre}
+  .blank{height:calc(var(--ls)*.55)}
+
+  .empty{padding:24px 0;color:var(--dim);font-size:16px;line-height:1.6}
+  .empty a{color:var(--accent)}
+  textarea{width:100%;min-height:240px;background:#12151b;color:var(--fg);border:1px solid var(--line);
+           border-radius:10px;padding:12px;font:14px/1.4 ui-monospace,Menlo,monospace;white-space:pre;overflow-x:auto}
+  .hint{font-size:13px;color:var(--dim);line-height:1.6;margin:10px 0}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <button class="btn" id="back" hidden>‹</button>
+    <h1 id="title">Сетлист</h1>
+    <button class="btn" id="imp">Додати</button>
+    <button class="btn" id="tdn" hidden>−½</button>
+    <button class="btn" id="tup" hidden>+½</button>
+    <select class="btn" id="capo" hidden></select>
+    <button class="btn" id="fdn" hidden>A−</button>
+    <button class="btn" id="fup" hidden>A+</button>
+  </div>
+  <div class="meta" id="meta" hidden></div>
+  <div id="midi">MIDI: …</div>
+</header>
+
+<ul id="list"></ul>
+<div id="song" hidden></div>
+<div id="import" hidden></div>
+
+<script>
+'use strict';
+
+/* ---------------- notation ----------------
+   Holychords uses Slavic naming: H = B natural, B = B flat.
+   Western: B = B natural, Bb = B flat.
+   We detect which one a song uses and transpose back into the same family,
+   so a chart never changes alphabet just because you pressed +1/2.        */
+
+const SHARP_W = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const FLAT_W  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','Bb','B'];
+const SHARP_S = ['C','C#','D','D#','E','F','F#','G','G#','A','B','H'];
+const FLAT_S  = ['C','Db','D','Eb','E','F','Gb','G','Ab','A','B','H'];
+
+const CHORD = /^\(?([A-H])([b#♭♯]?)((?:maj|min|sus|add|aug|dim|m|M|°|\+|\d|\(|\))*)(?:\/([A-H])([b#♭♯]?))?\)?[,;]?$/;
+const SEPS = new Set(['|','||','-','/','x2','x3','x4','(x2)','(x3)','(x4)']);
+
+let DATA = { midi:{up:64,down:65,channel:1,debounceMs:300}, scrollFraction:0.45, songs:[] };
+let cur = -1, transpose = 0, capo = 0, fontSize = 26, slavic = false;
+
+function pc(root, acc){
+  const base = {C:0,D:2,E:4,F:5,G:7,A:9,B:slavic?10:11,H:11}[root];
+  if (base === undefined) return null;
+  let i = base;
+  if (acc === '#' || acc === '♯') i++;
+  if (acc === 'b' || acc === '♭') i--;
+  return ((i % 12) + 12) % 12;
+}
+function name(i, flat){
+  i = ((i % 12) + 12) % 12;
+  return slavic ? (flat ? FLAT_S[i] : SHARP_S[i]) : (flat ? FLAT_W[i] : SHARP_W[i]);
+}
+function shift(root, acc, n){
+  const p = pc(root, acc);
+  if (p === null) return root + acc;
+  return name(p + n, acc === 'b' || acc === '♭');
+}
+function transposeToken(tok, n){
+  if (!n) return tok;
+  const m = tok.match(CHORD);
+  if (!m) return tok;
+  let out = shift(m[1], m[2], n) + (m[3] || '');
+  if (m[4]) out += '/' + shift(m[4], m[5] || '', n);
+  return out;
+}
+function isChordToken(t){ return SEPS.has(t.toLowerCase()) || CHORD.test(t); }
+function isChordLine(line){
+  const t = line.trim();
+  if (!t) return false;
+  if (/[Ѐ-ӿ]/.test(t)) return false;   // any Cyrillic => it's lyrics
+  if (!/[A-H]/.test(t)) return false;
+  return t.split(/\s+/).every(isChordToken);
+}
+function detectSlavic(body){
+  return body.split('\n').filter(isChordLine).join(' ').split(/\s+/)
+             .some(t => /^H/.test(t));
+}
+
+/* ---------------- rendering ---------------- */
+
+// displayed = written + transpose - capo
+const shownSteps = () => transpose - capo;
+
+function renderPair(chordLine, lyricLine){
+  const row = document.createElement('div');
+  row.className = 'row';
+  const lyric = lyricLine || '';
+  const marks = [];
+  const re = /\S+/g; let m;
+  while ((m = re.exec(chordLine)) !== null) marks.push({col:m.index, text:m[0]});
+
+  const cuts = [];
+  if (!marks.length || marks[0].col > 0) cuts.push({col:0, text:''});
+  for (const c of marks) cuts.push({col:c.col, text:transposeToken(c.text, shownSteps())});
+
+  cuts.forEach((c,i) => {
+    const end = (i+1 < cuts.length) ? cuts[i+1].col : lyric.length;
+    let piece = lyric.slice(c.col, Math.max(c.col, end));
+    if (c.text && piece.length && piece.length < c.text.length + 1 && i+1 < cuts.length) piece += ' ';
+    if (!c.text && !piece) return;
+    const seg = document.createElement('span'); seg.className = 'seg';
+    const ch = document.createElement('span'); ch.className = 'ch'; ch.textContent = c.text || ' ';
+    const ly = document.createElement('span'); ly.className = 'ly'; ly.textContent = piece || ' ';
+    seg.append(ch, ly); row.append(seg);
+  });
+  return row;
+}
+
+function renderBody(host, body){
+  host.textContent = '';
+  const lines = body.replace(/\r/g,'').split('\n');
+  for (let i = 0; i < lines.length; i++){
+    const line = lines[i];
+    if (!line.trim()){ const b=document.createElement('div'); b.className='blank'; host.append(b); continue; }
+    if (isChordLine(line)){
+      const next = lines[i+1];
+      if (next !== undefined && next.trim() && !isChordLine(next)){ host.append(renderPair(line,next)); i++; }
+      else host.append(renderPair(line,''));
+      continue;
+    }
+    const t = line.trim();
+    const nextNonEmpty = lines.slice(i+1).find(l => l.trim());
+    if (t.length <= 30 && (/:$/.test(t) || (nextNonEmpty && isChordLine(nextNonEmpty)))){
+      const s = document.createElement('div'); s.className='section'; s.textContent = t; host.append(s); continue;
+    }
+    host.append(renderPair('', line));
+  }
+}
+
+/* ---------------- views ---------------- */
+
+const $ = id => document.getElementById(id);
+const CTRLS = ['back','tdn','tup','capo','fdn','fup'];
+
+function buildCapo(){
+  const sel = $('capo'); sel.textContent='';
+  for (let i=0;i<=7;i++){
+    const o=document.createElement('option'); o.value=i;
+    o.textContent = i ? 'Капо '+i : 'Без капо'; sel.append(o);
+  }
+}
+
+function updateMeta(){
+  if (cur < 0) return;
+  const s = DATA.songs[cur];
+  const written = s.key || '';
+  const el = $('meta');
+  if (!s.body){ el.hidden = true; return; }
+  const parts = [];
+  const base = written ? written.match(CHORD) : null;
+  if (base){
+    const p = pc(base[1], base[2]);
+    const sounds = name(p + transpose, false) + (base[3]||'');
+    const played = name(p + transpose - capo, false) + (base[3]||'');
+    parts.push('Грати <b>'+played+'</b>');
+    if (capo) parts.push('капо <b>'+capo+'</b>');
+    parts.push('звучить <b>'+sounds+'</b>');
+  } else {
+    if (transpose) parts.push('транспон. <b>'+(transpose>0?'+':'')+transpose+'</b>');
+    if (capo) parts.push('капо <b>'+capo+'</b>');
+  }
+  if (s.leader) parts.push('веде <b>'+s.leader+'</b>');
+  el.innerHTML = parts.join(' · ');
+  el.hidden = !parts.length;
+}
+
+function showList(){
+  cur = -1;
+  $('song').hidden = true; $('import').hidden = true; $('list').hidden = false;
+  $('title').textContent = 'Сетлист';
+  $('meta').hidden = true; $('imp').hidden = false;
+  CTRLS.forEach(id => $(id).hidden = true);
+  window.scrollTo(0,0);
+}
+
+function openSong(i){
+  cur = i; transpose = 0; capo = 0;
+  const s = DATA.songs[i];
+  slavic = s.body ? detectSlavic(s.body) : false;
+  $('list').hidden = true; $('import').hidden = true; $('song').hidden = false;
+  $('title').textContent = s.title;
+  $('imp').hidden = true;
+  CTRLS.forEach(id => $(id).hidden = false);
+  $('capo').value = 0;
+
+  if (!s.body){
+    CTRLS.filter(x=>x!=='back').forEach(id => $(id).hidden = true);
+    const d = $('song'); d.textContent='';
+    const p = document.createElement('div'); p.className='empty';
+    p.innerHTML = 'Текст ще не додано.<br><br>' +
+      (s.url ? 'Відкрий <a href="'+s.url+'" target="_blank" rel="noopener">holychords</a>, ' : 'Відкрий пісню на holychords, ') +
+      'постав потрібну тональність, виділи й скопіюй акорди — потім «Додати».';
+    d.append(p);
+    $('meta').hidden = true;
+    window.scrollTo(0,0);
+    return;
+  }
+  renderBody($('song'), s.body);
+  updateMeta();
+  window.scrollTo(0,0);
+}
+
+function buildList(){
+  const ul = $('list'); ul.textContent='';
+  DATA.songs.forEach((s,i) => {
+    const li = document.createElement('li'); li.className='song';
+    const t = document.createElement('div'); t.className='t'; t.textContent = s.title;
+    const sub = document.createElement('div'); sub.className='s';
+    const bits = [];
+    if (s.leader) bits.push('веде ' + s.leader);
+    if (s.key) bits.push(s.key);
+    sub.textContent = bits.join(' · ');
+    if (!s.body){
+      const w = document.createElement('span'); w.className='warn';
+      w.textContent = (bits.length ? ' · ' : '') + 'без тексту';
+      sub.append(w);
+    }
+    li.append(t, sub);
+    li.addEventListener('click', () => openSong(i));
+    ul.append(li);
+  });
+}
+
+/* ---------------- import ---------------- */
+
+function showImport(){
+  $('list').hidden = true; $('song').hidden = true;
+  const host = $('import'); host.hidden = false; host.textContent='';
+  $('title').textContent = 'Додати пісню';
+  $('imp').hidden = true; CTRLS.forEach(id => $(id).hidden = true); $('back').hidden = false;
+  $('meta').hidden = true;
+
+  const h = document.createElement('div'); h.className='hint';
+  h.textContent = 'Встав акорди, скопійовані з holychords. Знизу зʼявиться готовий JSON — встав його в songs.json і запуш.';
+  const which = document.createElement('select'); which.className='btn';
+  DATA.songs.forEach((s,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=s.title; which.append(o); });
+  const ta = document.createElement('textarea'); ta.placeholder = 'Встав сюди…';
+  const prev = document.createElement('div');
+  const out = document.createElement('textarea'); out.readOnly = true; out.style.minHeight='120px'; out.hidden = true;
+
+  const go = () => {
+    const body = ta.value.replace(/\r/g,'').replace(/ /g,' ').replace(/[ \t]+$/gm,'');
+    slavic = detectSlavic(body);
+    prev.textContent = '';
+    if (!body.trim()) { out.hidden = true; return; }
+    const lbl = document.createElement('div'); lbl.className='hint';
+    const n = body.split('\n').filter(isChordLine).length;
+    lbl.textContent = 'Розпізнано рядків з акордами: ' + n + (slavic ? ' · нотація H (H = сі)' : ' · нотація B');
+    prev.append(lbl);
+    const box = document.createElement('div');
+    transpose = 0; capo = 0;
+    renderBody(box, body);
+    prev.append(box);
+    out.hidden = false;
+    out.value = JSON.stringify({ body }, null, 2)
+      .replace(/^\{\n\s*/, '').replace(/\n\}$/, '');
+  };
+  ta.addEventListener('input', go);
+  ta.addEventListener('paste', () => setTimeout(go, 0));
+
+  host.append(h, which, ta, out, prev);
+  window.scrollTo(0,0);
+}
+
+/* ---------------- MIDI ---------------- */
+
+function setMidi(t, c){ const e=$('midi'); e.textContent='MIDI: '+t; e.className=c||''; }
+
+const step = () => Math.round(window.innerHeight * (DATA.scrollFraction || 0.45));
+const last = {};
+
+function onMidi(e){
+  const [status, num, val] = e.data;
+  if ((status & 0xf0) !== 0xb0) return;                                  // Control Change only
+  const ch = (status & 0x0f) + 1;
+  if (DATA.midi.channel && ch !== DATA.midi.channel) return;
+
+  // One tap = one move, whether the switch is momentary (127 then 0 instantly)
+  // or latching (127 on this tap, 0 on the next one).
+  const now = performance.now();
+  if (last[num] && now - last[num] < (DATA.midi.debounceMs || 300)) return;
+  last[num] = now;
+
+  if (num === DATA.midi.up)   window.scrollBy({top:-step(), behavior:'smooth'});
+  if (num === DATA.midi.down) window.scrollBy({top: step(), behavior:'smooth'});
+}
+
+function initMidi(){
+  if (!navigator.requestMIDIAccess){
+    setMidi('недоступний — відкрий у MIDIWeb Browser', 'err'); return;
+  }
+  navigator.requestMIDIAccess().then(access => {
+    const attach = () => {
+      const names = [];
+      for (const inp of access.inputs.values()){ inp.onmidimessage = onMidi; names.push(inp.name); }
+      names.length ? setMidi(names.join(', ') + ' · CC64 ↑ CC65 ↓', 'ok')
+                   : setMidi('пристрій не знайдено — підключи педаль і онови', 'err');
+    };
+    attach(); access.onstatechange = attach;
+  }).catch(err => setMidi('помилка — ' + err.message, 'err'));
+}
+
+/* ---------------- wiring ---------------- */
+
+function rerender(){ if (cur>=0 && DATA.songs[cur].body){ renderBody($('song'), DATA.songs[cur].body); updateMeta(); } }
+
+$('back').addEventListener('click', showList);
+$('imp').addEventListener('click', showImport);
+$('tup').addEventListener('click', () => { transpose++; rerender(); });
+$('tdn').addEventListener('click', () => { transpose--; rerender(); });
+$('capo').addEventListener('change', e => { capo = +e.target.value; rerender(); });
+$('fup').addEventListener('click', () => { fontSize=Math.min(fontSize+2,52); document.documentElement.style.setProperty('--ls',fontSize+'px'); });
+$('fdn').addEventListener('click', () => { fontSize=Math.max(fontSize-2,14); document.documentElement.style.setProperty('--ls',fontSize+'px'); });
+
+window.addEventListener('keydown', e => {
+  if (e.target.tagName === 'TEXTAREA') return;
+  if (e.key==='ArrowDown'||e.key===' '){ e.preventDefault(); window.scrollBy({top:step(),behavior:'smooth'}); }
+  if (e.key==='ArrowUp'){ e.preventDefault(); window.scrollBy({top:-step(),behavior:'smooth'}); }
+  if (e.key==='Escape') showList();
+});
+
+buildCapo();
+fetch('songs.json?v=' + Date.now())
+  .then(r => { if(!r.ok) throw new Error('songs.json ' + r.status); return r.json(); })
+  .then(d => { DATA = Object.assign(DATA, d); buildList(); })
+  .catch(err => { $('title').textContent = 'songs.json — ' + err.message; });
+
+initMidi();
+</script>
+</body>
+</html>
