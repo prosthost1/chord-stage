@@ -36,6 +36,9 @@
   .ch{display:block;color:var(--chord);font-weight:700;font-size:calc(var(--ls)*.8);line-height:1.25;white-space:pre}
   .ly{display:block;font-size:var(--ls);white-space:pre}
   .blank{height:calc(var(--ls)*.55)}
+  .auto .ch{color:#9a7b3a}
+  .btn.off{opacity:.42}
+  .rowbtns{display:flex;gap:8px;margin:12px 0}
 
   .empty{padding:24px 0;color:var(--dim);font-size:16px;line-height:1.6}
   .empty a{color:var(--accent)}
@@ -54,6 +57,7 @@
     <button class="btn" id="tdn" hidden>−½</button>
     <button class="btn" id="tup" hidden>+½</button>
     <select class="btn" id="capo" hidden></select>
+    <button class="btn" id="edit" hidden>✎</button>
     <button class="btn" id="fdn" hidden>A−</button>
     <button class="btn" id="fup" hidden>A+</button>
   </div>
@@ -123,6 +127,34 @@ function detectSlavic(body){
              .some(t => /^H/.test(t));
 }
 
+const SECTION_RE = /^(куплет|приспів|приспiв|припев|перехід|бридж|bridge|інтро|интро|intro|програш|проигрыш|кінцівка|концовка|outro|verse|chorus|pre-?chorus|преприспів|соло|solo)\b/i;
+
+function splitBlocks(body){
+  const blocks = [[]];
+  for (const line of body.replace(/\r/g,'').split('\n')){
+    if (!line.trim()) blocks.push([]); else blocks[blocks.length-1].push(line);
+  }
+  return blocks.filter(b => b.length);
+}
+function pairsOf(block){
+  const out = [];
+  for (let i = 0; i < block.length; i++){
+    const line = block[i];
+    if (isChordLine(line)){
+      const next = block[i+1];
+      if (next !== undefined && !isChordLine(next)){ out.push({chords:line, lyric:next}); i++; }
+      else out.push({chords:line, lyric:''});
+      continue;
+    }
+    const t = line.trim();
+    const nextIsChord = block[i+1] && isChordLine(block[i+1]);
+    if (out.length === 0 && t.length <= 30 && (SECTION_RE.test(t) || /:$/.test(t) || nextIsChord))
+      out.push({section:t});
+    else out.push({chords:'', lyric:line});
+  }
+  return out;
+}
+
 /* ---------------- rendering ---------------- */
 
 // displayed = written + transpose - capo
@@ -155,29 +187,25 @@ function renderPair(chordLine, lyricLine){
 
 function renderBody(host, body){
   host.textContent = '';
-  const lines = body.replace(/\r/g,'').split('\n');
-  for (let i = 0; i < lines.length; i++){
-    const line = lines[i];
-    if (!line.trim()){ const b=document.createElement('div'); b.className='blank'; host.append(b); continue; }
-    if (isChordLine(line)){
-      const next = lines[i+1];
-      if (next !== undefined && next.trim() && !isChordLine(next)){ host.append(renderPair(line,next)); i++; }
-      else host.append(renderPair(line,''));
-      continue;
+  const blocks = splitBlocks(body).map(pairsOf);
+  blocks.forEach((pairs, bi) => {
+    pairs.forEach(p => {
+      if (p.section){
+        const el = document.createElement('div'); el.className = 'section';
+        el.textContent = p.section; host.append(el); return;
+      }
+      host.append(renderPair(p.chords || '', p.lyric));
+    });
+    if (bi < blocks.length - 1){
+      const b = document.createElement('div'); b.className = 'blank'; host.append(b);
     }
-    const t = line.trim();
-    const nextNonEmpty = lines.slice(i+1).find(l => l.trim());
-    if (t.length <= 30 && (/:$/.test(t) || (nextNonEmpty && isChordLine(nextNonEmpty)))){
-      const s = document.createElement('div'); s.className='section'; s.textContent = t; host.append(s); continue;
-    }
-    host.append(renderPair('', line));
-  }
+  });
 }
 
 /* ---------------- views ---------------- */
 
 const $ = id => document.getElementById(id);
-const CTRLS = ['back','tdn','tup','capo','fdn','fup'];
+const CTRLS = ['back','tdn','tup','capo','edit','fdn','fup'];
 
 function buildCapo(){
   const sel = $('capo'); sel.textContent='';
@@ -235,9 +263,12 @@ function openSong(i){
     const d = $('song'); d.textContent='';
     const p = document.createElement('div'); p.className='empty';
     p.innerHTML = 'Текст ще не додано.<br><br>' +
-      (s.url ? 'Відкрий <a href="'+s.url+'" target="_blank" rel="noopener">holychords</a>, ' : 'Відкрий пісню на holychords, ') +
-      'скопіюй акорди — у будь-якій тональності — і натисни «Додати».<br>Транспонування й капо працюють тут, у плеєрі.';
-    d.append(p);
+      (s.url ? 'Відкрий <a href="'+s.url+'" target="_blank" rel="noopener">holychords</a> ' : 'Відкрий пісню на holychords ') +
+      'у сусідній вкладці, скопіюй акорди й встав їх сюди.';
+    const go = document.createElement('button'); go.className='btn'; go.textContent='Вставити акорди';
+    go.addEventListener('click', () => showImport(i));
+    const wrap = document.createElement('div'); wrap.className='rowbtns'; wrap.append(go);
+    d.append(p, wrap);
     $('meta').hidden = true;
     window.scrollTo(0,0);
     return;
@@ -270,43 +301,86 @@ function buildList(){
 
 /* ---------------- import ---------------- */
 
-function showImport(){
+/* Songs you paste are kept in this browser. Paste on the phone you play
+   from and it stays there; songs.json in the repo only seeds the list.   */
+const STORE = 'chord-stage-v1';
+function loadLocal(){ try { return JSON.parse(localStorage.getItem(STORE) || '{}'); } catch(e){ return {}; } }
+function saveLocal(o){ try { localStorage.setItem(STORE, JSON.stringify(o)); return true; } catch(e){ return false; } }
+function applyLocal(){
+  const L = loadLocal();
+  DATA.songs.forEach(s => { if (L[s.title] && L[s.title].body) s.body = L[s.title].body; });
+  Object.keys(L).forEach(t => {
+    if (!DATA.songs.some(s => s.title === t))
+      DATA.songs.push({ title:t, leader:'', key:'', url:'', body:L[t].body });
+  });
+}
+
+function showImport(idx){
   $('list').hidden = true; $('song').hidden = true;
-  const host = $('import'); host.hidden = false; host.textContent='';
-  $('title').textContent = 'Додати пісню';
-  $('imp').hidden = true; CTRLS.forEach(id => $(id).hidden = true); $('back').hidden = false;
-  $('meta').hidden = true;
+  const host = $('import'); host.hidden = false; host.textContent = '';
+  const existing = idx >= 0 ? DATA.songs[idx] : null;
+  $('title').textContent = existing ? existing.title : 'Нова пісня';
+  $('imp').hidden = true; CTRLS.forEach(id => $(id).hidden = true);
+  $('back').hidden = false; $('meta').hidden = true;
 
-  const h = document.createElement('div'); h.className='hint';
-  h.innerHTML = 'Встав акорди, скопійовані з holychords, у будь-якій тональності — транспонування й капо налаштуєш у плеєрі.<br>Знизу зʼявиться готовий JSON — встав його в songs.json і запуш.';
-  const which = document.createElement('select'); which.className='btn';
-  DATA.songs.forEach((s,i)=>{ const o=document.createElement('option'); o.value=i; o.textContent=s.title; which.append(o); });
-  const ta = document.createElement('textarea'); ta.placeholder = 'Встав сюди…';
-  const prev = document.createElement('div');
-  const out = document.createElement('textarea'); out.readOnly = true; out.style.minHeight='120px'; out.hidden = true;
+  const hint = document.createElement('div'); hint.className = 'hint';
+  hint.innerHTML = 'Скопіюй акорди з holychords у будь-якій тональності і встав сюди. ' +
+                   'Транспонування, капо й автопідстановку акордів у куплети налаштуєш у плеєрі.';
 
-  const go = () => {
-    const body = ta.value.replace(/\r/g,'').replace(/ /g,' ').replace(/[ \t]+$/gm,'');
-    slavic = detectSlavic(body);
-    prev.textContent = '';
-    if (!body.trim()) { out.hidden = true; return; }
-    const lbl = document.createElement('div'); lbl.className='hint';
+  let nameInput = null;
+  if (!existing){
+    nameInput = document.createElement('input');
+    nameInput.className = 'btn'; nameInput.style.width = '100%';
+    nameInput.placeholder = 'Назва пісні';
+  }
+
+  const ta = document.createElement('textarea');
+  ta.placeholder = 'Встав акорди сюди…';
+  ta.value = existing && existing.body ? existing.body : '';
+
+  const btns = document.createElement('div'); btns.className = 'rowbtns';
+  const save = document.createElement('button'); save.className = 'btn'; save.textContent = 'Зберегти';
+  const cancel = document.createElement('button'); cancel.className = 'btn'; cancel.textContent = 'Скасувати';
+  const status = document.createElement('div'); status.className = 'hint';
+  btns.append(save, cancel);
+
+  const preview = document.createElement('div');
+  const refresh = () => {
+    const body = clean(ta.value);
+    preview.textContent = '';
+    if (!body.trim()) return;
+    slavic = detectSlavic(body); transpose = 0; capo = 0;
     const n = body.split('\n').filter(isChordLine).length;
-    lbl.textContent = 'Розпізнано рядків з акордами: ' + n + (slavic ? ' · нотація H (H = сі)' : ' · нотація B');
-    prev.append(lbl);
-    const box = document.createElement('div');
-    transpose = 0; capo = 0;
-    renderBody(box, body);
-    prev.append(box);
-    out.hidden = false;
-    out.value = JSON.stringify({ body }, null, 2)
-      .replace(/^\{\n\s*/, '').replace(/\n\}$/, '');
+    const lbl = document.createElement('div'); lbl.className = 'hint';
+    lbl.textContent = 'Рядків з акордами: ' + n + (slavic ? ' · нотація H' : ' · нотація B');
+    preview.append(lbl);
+    const box = document.createElement('div'); renderBody(box, body); preview.append(box);
   };
-  ta.addEventListener('input', go);
-  ta.addEventListener('paste', () => setTimeout(go, 0));
+  ta.addEventListener('input', refresh);
+  ta.addEventListener('paste', () => setTimeout(refresh, 0));
 
-  host.append(h, which, ta, out, prev);
+  save.addEventListener('click', () => {
+    const body = clean(ta.value);
+    const title = existing ? existing.title : (nameInput.value.trim() || 'Без назви');
+    if (!body.trim()){ status.textContent = 'Порожньо — нема що зберігати.'; return; }
+    const L = loadLocal(); L[title] = { body };
+    if (!saveLocal(L)){ status.textContent = 'Не вдалося зберегти у цьому браузері.'; return; }
+    let i = DATA.songs.findIndex(s => s.title === title);
+    if (i < 0){ DATA.songs.push({ title, leader:'', key:'', url:'', body }); i = DATA.songs.length - 1; }
+    else DATA.songs[i].body = body;
+    buildList(); openSong(i);
+  });
+  cancel.addEventListener('click', () => existing ? openSong(idx) : showList());
+
+  host.append(hint);
+  if (nameInput) host.append(nameInput);
+  host.append(ta, btns, status, preview);
+  refresh();
   window.scrollTo(0,0);
+}
+
+function clean(t){
+  return t.replace(/\r/g,'').replace(/ /g,' ').replace(/[ \t]+$/gm,'').replace(/\n{3,}/g,'\n\n');
 }
 
 /* ---------------- MIDI ---------------- */
@@ -352,7 +426,8 @@ function initMidi(){
 function rerender(){ if (cur>=0 && DATA.songs[cur].body){ renderBody($('song'), DATA.songs[cur].body); updateMeta(); } }
 
 $('back').addEventListener('click', showList);
-$('imp').addEventListener('click', showImport);
+$('imp').addEventListener('click', () => showImport(-1));
+$('edit').addEventListener('click', () => showImport(cur));
 $('tup').addEventListener('click', () => { transpose++; rerender(); });
 $('tdn').addEventListener('click', () => { transpose--; rerender(); });
 $('capo').addEventListener('change', e => { capo = +e.target.value; rerender(); });
@@ -369,8 +444,8 @@ window.addEventListener('keydown', e => {
 buildCapo();
 fetch('songs.json?v=' + Date.now())
   .then(r => { if(!r.ok) throw new Error('songs.json ' + r.status); return r.json(); })
-  .then(d => { DATA = Object.assign(DATA, d); buildList(); })
-  .catch(err => { $('title').textContent = 'songs.json — ' + err.message; });
+  .then(d => { DATA = Object.assign(DATA, d); applyLocal(); buildList(); })
+  .catch(() => { applyLocal(); buildList(); });
 
 initMidi();
 </script>
