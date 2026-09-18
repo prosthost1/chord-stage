@@ -11,7 +11,7 @@
     --bg:#0a0c10; --surface:#161b24; --surface-2:#1e242f;
     --fg:#eef2f7; --dim:#818c9e; --edge:#272e3a;
     --chord:#f0a93b; --accent:#5b9dff; --ok:#3ec98a; --bad:#ff6f6f;
-    --ls:28px; --radius:10px;
+    --ls:15px; --radius:10px;
   }
   [hidden]{display:none !important}
   *{box-sizing:border-box;touch-action:manipulation}          /* kills double-tap zoom */
@@ -155,7 +155,7 @@ const isSectionLine=t=>{ t=(t||'').trim(); return !!t && t.length<=32 && (SECTIO
 const SECTION_RE=/^(куплет|приспів|приспiв|припев|перед\s|передприспів|перехід|бридж|брідж|bridge|інтро|интро|intro|програш|проигрыш|кінцівка|концовка|outro|verse|chorus|pre-?chorus|соло|solo|финал|фінал)/i;
 
 let DATA={midi:{up:64,down:65,channel:1,debounceMs:300},scrollFraction:.45,songs:[]};
-let cur=-1, transpose=0, capo=0, fontSize=28, slavic=false, basePc=null, baseSuffix='';
+let cur=-1, transpose=0, capo=0, fontSize=15, slavic=false, basePc=null, baseSuffix='';
 
 function pcOf(root,acc){
   const base={C:0,D:2,E:4,F:5,G:7,A:9,B:slavic?10:11,H:11}[root];
