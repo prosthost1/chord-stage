@@ -1,24 +1,26 @@
 {
-  "midi": { "up": 64, "down": 65, "channel": 1, "debounceMs": 300 },
+  "midi": {
+    "up": 64,
+    "down": 65,
+    "channel": 1,
+    "debounceMs": 300
+  },
   "scrollFraction": 0.45,
   "songs": [
     {
       "title": "Вільний я",
-      "leader": "Аня, Юля",
       "key": "",
       "url": "https://holychords.pro/38716",
       "body": ""
     },
     {
       "title": "Так Бог",
-      "leader": "Аня",
       "key": "E",
       "url": "",
       "body": ""
     },
     {
       "title": "Провадиш",
-      "leader": "Юля",
       "key": "",
       "url": "https://holychords.pro/13137",
       "body": ""
