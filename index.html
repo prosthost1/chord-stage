@@ -88,6 +88,7 @@
   .ch{display:block;color:var(--chord);font-weight:400;letter-spacing:-.01em;
       font-size:calc(var(--ls) * 1.5);line-height:1.18;white-space:pre;
       font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .seg .ch{padding-right:.6ch}                         /* neighbouring chords never touch */
   .ly{display:block;font-size:var(--ls);white-space:pre;letter-spacing:-.005em}
   .only .ch{font-size:calc(var(--ls) * 1.62)}
   .blank{height:calc(var(--ls) * .6)}
@@ -249,6 +250,7 @@ function renderPair(chordLine,lyricLine){
     ch.textContent=rebuildChordLine(chordLine,steps());
     row.append(ch); return row;
   }
+  lyricLine=lyricLine.padEnd(chordLine.length);       // chords past the lyric keep their spacing
   const marks=[]; const re=/\S+/g; let m;
   while((m=re.exec(chordLine))!==null) marks.push({col:m.index,text:m[0]});
   const cuts=[];
