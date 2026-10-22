@@ -153,7 +153,7 @@ const FLAT_S =['C','Db','D','Eb','E','F','Gb','G','Ab','A','B','H'];
 const CHORD=/^\(?([A-H])([b#♭♯]?)((?:maj|min|sus|add|aug|dim|m|M|°|\+|\d|\(|\))*)(?:\/([A-H])([b#♭♯]?))?\)?[,;]?$/;
 const SEPS=new Set(['|','||','-','/','x2','x3','x4','(x2)','(x3)','(x4)']);
 const isSectionLine=t=>{ t=(t||'').trim(); return !!t && t.length<=32 && (SECTION_RE.test(t)||/:$/.test(t)); };
-const SECTION_RE=/^(куплет|приспів|приспiв|припев|перед\s|передприспів|перехід|бридж|брідж|bridge|інтро|интро|intro|програш|проигрыш|кінцівка|концовка|outro|verse|chorus|pre-?chorus|соло|solo|финал|фінал)/i;
+const SECTION_RE=/^(куплет|приспів|приспiв|припев|перед\s|передприспів|перехід|бридж|брідж|bridge|інтро|интро|intro|програш|проигрыш|кінцівка|концовка|outro|verse|chorus|pre-?chorus|соло|solo|тег|tag|финал|фінал)/i;
 
 let DATA={midi:{up:64,down:65,channel:1,debounceMs:300},scrollFraction:.45,songs:[]};
 let cur=-1, transpose=0, capo=0, fontSize=15, slavic=false, basePc=null, baseSuffix='';
@@ -187,7 +187,22 @@ function isChordLine(line){
 const detectSlavic=body=>body.split('\n').filter(isChordLine).join(' ').split(/\s+/).some(t=>/^H/.test(t));
 
 /* ============ normalising a pasted chart ============ */
+// "[A]Іноді я Тебе [D]питаю" → a chord line over a lyric line, chords at their columns.
+function expandInline(line){
+  const found=[...line.matchAll(/\[([^\]\s]+)\]/g)];
+  if(!found.length || !found.every(m=>CHORD.test(m[1]))) return line;
+  let chords='', lyric='', last=0;
+  for(const m of found){
+    lyric+=line.slice(last,m.index); last=m.index+m[0].length;
+    // a long chord crowding the next one: widen the lyric, never move a chord off its syllable
+    if(chords && lyric.length<chords.length+1) lyric=lyric.padEnd(chords.length+1);
+    chords=chords.padEnd(lyric.length)+m[1];
+  }
+  lyric=(lyric+line.slice(last)).replace(/\s+$/,'');
+  return lyric.trim() ? chords+'\n'+lyric : chords;
+}
 function normalise(raw){
+  raw=raw.replace(/\r/g,'').split('\n').map(expandInline).join('\n');
   let lines=raw.replace(/\r/g,'').replace(/ /g,' ').split('\n').map(l =>
     l.replace(/\*\*/g,'').replace(/__/g,'').replace(/^#{1,6}\s*/,'').replace(/\s+$/,'')
   );
@@ -522,7 +537,7 @@ document.addEventListener('gesturestart',e=>e.preventDefault());
 buildCapo();
 fetch('songs.json?v='+Date.now())
   .then(r=>{ if(!r.ok) throw 0; return r.json(); })
-  .then(d=>{ DATA=Object.assign(DATA,d); applyLocal(); buildList(); })
+  .then(d=>{ DATA=Object.assign(DATA,d); DATA.songs.forEach(s=>{ if(s.body) s.body=normalise(s.body); }); applyLocal(); buildList(); })
   .catch(()=>{ applyLocal(); buildList(); });
 initMidi();
 </script>
