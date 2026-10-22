@@ -259,13 +259,16 @@ function rebuildChordLine(line,n){
 function renderPair(chordLine,lyricLine){
   const row=document.createElement('div'); row.className='row';
 
+  if(!chordLine.trim()){                              // lyric with no chords: no empty chord row above it
+    const ly=document.createElement('span'); ly.className='ly'; ly.textContent=lyricLine;
+    row.append(ly); return row;
+  }
   if(!lyricLine){                                     // chord-only line: keep its spacing
     row.classList.add('only');
     const ch=document.createElement('span'); ch.className='ch';
     ch.textContent=rebuildChordLine(chordLine,steps());
     row.append(ch); return row;
   }
-  lyricLine=lyricLine.padEnd(chordLine.length);       // chords past the lyric keep their spacing
   const marks=[]; const re=/\S+/g; let m;
   while((m=re.exec(chordLine))!==null) marks.push({col:m.index,text:m[0]});
   const cuts=[];
