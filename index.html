@@ -89,6 +89,7 @@
       font-size:calc(var(--ls) * 1.5);line-height:1.18;white-space:pre;
       font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
   .seg .ch{padding-right:.6ch}                         /* neighbouring chords never touch */
+  .seg .ch.none{padding-right:0;width:0}               /* no chord here: the lyric sets the width */
   .ly{display:block;font-size:var(--ls);white-space:pre;letter-spacing:-.005em}
   .only .ch{font-size:calc(var(--ls) * 1.62)}
   .blank{height:calc(var(--ls) * .6)}
@@ -271,6 +272,13 @@ function renderPair(chordLine,lyricLine){
   }
   const marks=[]; const re=/\S+/g; let m;
   while((m=re.exec(chordLine))!==null) marks.push({col:m.index,text:m[0]});
+  // a chord one or two letters into a word is sloppy alignment: move it to the word start
+  const letter=c=>/[\p{L}'’ʼ]/u.test(c||'');
+  marks.forEach((k,j)=>{
+    let ws=k.col; while(ws>0 && letter(lyricLine[ws-1])) ws--;
+    const prev=j?marks[j-1].col:-1;
+    if(ws<k.col && k.col-ws<=2 && letter(lyricLine[k.col]) && ws>prev) k.col=ws;
+  });
   const cuts=[];
   if(!marks.length||marks[0].col>0) cuts.push({col:0,text:''});
   for(const c of marks) cuts.push({col:c.col,text:transposeToken(c.text,steps())});
@@ -281,12 +289,24 @@ function renderPair(chordLine,lyricLine){
     if(c.text&&piece.length&&piece.length<c.text.length+1&&i+1<cuts.length) piece+=' ';
     if(!c.text&&!piece) return;
     const seg=document.createElement('span'); seg.className='seg';
-    const ch=document.createElement('span'); ch.className='ch'; ch.textContent=c.text||' ';
+    const ch=document.createElement('span'); ch.className=c.text?'ch':'ch none'; ch.textContent=c.text||' ';
     const ly=document.createElement('span'); ly.className='ly'; ly.textContent=piece||' ';
     seg.append(ch,ly); row.append(seg);
   });
   return row;
 }
+// A row whose chords would wrap gets a slightly smaller type size before it is allowed to wrap.
+function fitRows(host){
+  const base=parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--ls'))||15;
+  host.querySelectorAll('.row').forEach(row=>{
+    row.style.removeProperty('--ls');
+    const segs=row.children; if(segs.length<2) return;
+    const wraps=()=>segs[segs.length-1].offsetTop>segs[0].offsetTop+2;
+    for(const s of [.94,.88,.82]){ if(!wraps()) break; row.style.setProperty('--ls',(base*s)+'px'); }
+    if(wraps()) row.style.removeProperty('--ls');      // still too long even small: wrap at full size
+  });
+}
+window.addEventListener('resize',()=>{ const s=$('song'); if(s && !s.hidden) fitRows(s); });
 function renderBody(host,body){
   host.textContent='';
   const blocks=splitBlocks(body).map(pairsOf);
@@ -300,6 +320,7 @@ function renderBody(host,body){
     });
     if(bi<blocks.length-1){ const b=document.createElement('div'); b.className='blank'; host.append(b); }
   });
+  fitRows(host);
 }
 
 /* ============ storage ============ */
@@ -313,13 +334,19 @@ function rememberView(){
   all[DATA.songs[cur].title]={ key:((basePc+transpose)%12+12)%12, capo };
   savePrefs(all);
 }
+const SITE={};                                        // title → chords as published in songs.json
 const loadLocal=()=>{ try{ return JSON.parse(localStorage.getItem(STORE)||'{}'); }catch(e){ return {}; } };
 const saveLocal=o=>{ try{ localStorage.setItem(STORE,JSON.stringify(o)); return true; }catch(e){ return false; } };
+// A paste is remembered with the site's chords it replaced; once the site's chords change, they win.
 function applyLocal(){
   const L=loadLocal();
-  DATA.songs.forEach(s=>{ if(L[s.title]&&L[s.title].body) s.body=L[s.title].body; });
+  DATA.songs.forEach(s=>{
+    const l=L[s.title]; if(!l||!l.body) return;
+    if(s.body && l.over!==s.body) return;
+    s.body=normalise(l.body);                         // older pastes may still hold [A]-style chords
+  });
   Object.keys(L).forEach(t=>{
-    if(!DATA.songs.some(s=>s.title===t)) DATA.songs.push({title:t,key:'',url:'',body:L[t].body});
+    if(!DATA.songs.some(s=>s.title===t)) DATA.songs.push({title:t,key:'',url:'',body:normalise(L[t].body)});
   });
 }
 
@@ -462,7 +489,7 @@ function showEditor(idx){
     const body=normalise(ta.value);
     const title=existing?existing.title:((nameInput.value||'').trim()||'Без назви');
     if(!body){ status.textContent='Порожньо — нема що зберігати.'; return; }
-    const L=loadLocal(); L[title]={body};
+    const L=loadLocal(); const site=SITE[title]; L[title]=site?{body,over:site}:{body};
     if(!saveLocal(L)){ status.textContent='Не вдалося зберегти у цьому браузері.'; return; }
     let i=DATA.songs.findIndex(s=>s.title===title);
     if(i<0){ DATA.songs.push({title,key:'',url:'',body}); i=DATA.songs.length-1; }
@@ -525,8 +552,8 @@ $('add').addEventListener('click',()=>showEditor(-1));
 $('edit').addEventListener('click',()=>showEditor(cur));
 $('key').addEventListener('change',e=>{ transpose=(+e.target.value)-basePc; rerender(); rememberView(); });
 $('capo').addEventListener('change',e=>{ capo=+e.target.value; rerender(); rememberView(); });
-$('fup').addEventListener('click',()=>{ fontSize=Math.min(fontSize+2,54); document.documentElement.style.setProperty('--ls',fontSize+'px'); });
-$('fdn').addEventListener('click',()=>{ fontSize=Math.max(fontSize-2,15); document.documentElement.style.setProperty('--ls',fontSize+'px'); });
+$('fup').addEventListener('click',()=>{ fontSize=Math.min(fontSize+2,54); document.documentElement.style.setProperty('--ls',fontSize+'px'); fitRows($('song')); });
+$('fdn').addEventListener('click',()=>{ fontSize=Math.max(fontSize-2,15); document.documentElement.style.setProperty('--ls',fontSize+'px'); fitRows($('song')); });
 
 window.addEventListener('keydown',e=>{
   if(/TEXTAREA|INPUT/.test(e.target.tagName)) return;
@@ -540,7 +567,7 @@ document.addEventListener('gesturestart',e=>e.preventDefault());
 buildCapo();
 fetch('songs.json?v='+Date.now())
   .then(r=>{ if(!r.ok) throw 0; return r.json(); })
-  .then(d=>{ DATA=Object.assign(DATA,d); DATA.songs.forEach(s=>{ if(s.body) s.body=normalise(s.body); }); applyLocal(); buildList(); })
+  .then(d=>{ DATA=Object.assign(DATA,d); DATA.songs.forEach(s=>{ if(s.body){ s.body=normalise(s.body); SITE[s.title]=s.body; } }); applyLocal(); buildList(); })
   .catch(()=>{ applyLocal(); buildList(); });
 initMidi();
 </script>
